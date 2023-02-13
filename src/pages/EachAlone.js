@@ -975,12 +975,12 @@ class EachAlone extends Simulation {
     		border: '1px solid red',
     		backgroundColor: 'white',
     		lineHeight: 1,
-    		'-webkit-touch-callout': 'none',
-    		'-webkit-user-select': 'none',
-    		'-khtml-user-select': 'none',
-    		'-moz-user-select': 'none',
-    		'-ms-user-select': 'none',
-    		'user-select': 'none'
+    		'WebkitTouchCallout': 'none',
+    		'WebkitUserSelect': 'none',
+    		'KhtmlUserSelect': 'none',
+    		'MozUserSelect': 'none',
+    		'MsUserSelect': 'none',
+    		'UserSelect': 'none'
     	}
 
 
@@ -995,12 +995,12 @@ class EachAlone extends Simulation {
     		border: '1px solid red',
     		backgroundColor: 'white',
     		lineHeight: 1,
-    		'-webkit-touch-callout': 'none',
-    		'-webkit-user-select': 'none',
-    		'-khtml-user-select': 'none',
-    		'-moz-user-select': 'none',
-    		'-ms-user-select': 'none',
-    		'user-select': 'none'
+    		'WebkitTouchCallout': 'none',
+    		'WebkitUserSelect': 'none',
+    		'KhtmlUserSelect': 'none',
+    		'MozUserSelect': 'none',
+    		'MsUserSelect': 'none',
+    		'UserSelect': 'none'
     	}
 
     	centerX = modelLeft + 2 * modelDiv + modelDiv / 2;
@@ -1014,12 +1014,12 @@ class EachAlone extends Simulation {
     		border: '1px solid red',
     		backgroundColor: 'white',
     		lineHeight: 1,
-    		'-webkit-touch-callout': 'none',
-    		'-webkit-user-select': 'none',
-    		'-khtml-user-select': 'none',
-    		'-moz-user-select': 'none',
-    		'-ms-user-select': 'none',
-    		'user-select': 'none'
+    		'WebkitTouchCallout': 'none',
+    		'WebkitUserSelect': 'none',
+    		'KhtmlUserSelect': 'none',
+    		'MozUserSelect': 'none',
+    		'MsUserSelect': 'none',
+    		'UserSelect': 'none'
     	}
 
 	centerX = modelLeft + modelDiv / 2;
@@ -1046,12 +1046,12 @@ class EachAlone extends Simulation {
     		border: '1px solid red',
     		backgroundColor: 'white',
     		lineHeight: 1,
-    		'-webkit-touch-callout': 'none',
-    		'-webkit-user-select': 'none',
-    		'-khtml-user-select': 'none',
-    		'-moz-user-select': 'none',
-    		'-ms-user-select': 'none',
-    		'user-select': 'none'
+    		'WebkitTouchCallout': 'none',
+    		'WebkitUserSelect': 'none',
+    		'KhtmlUserSelect': 'none',
+    		'MozUserSelect': 'none',
+    		'MsUserSelect': 'none',
+    		'UserSelect': 'none'
     	}
 
 	centerX = modelLeft + 2 * modelDiv + modelDiv / 2;
@@ -1065,12 +1065,12 @@ class EachAlone extends Simulation {
     		border: '1px solid red',
     		backgroundColor: 'white',
     		lineHeight: 1,
-    		'-webkit-touch-callout': 'none',
-    		'-webkit-user-select': 'none',
-    		'-khtml-user-select': 'none',
-    		'-moz-user-select': 'none',
-    		'-ms-user-select': 'none',
-    		'user-select': 'none'
+    		'WebkitTouchCallout': 'none',
+    		'WebkitUserSelect': 'none',
+    		'KhtmlUserSelect': 'none',
+    		'MozUserSelect': 'none',
+    		'MsUserSelect': 'none',
+    		'UserSelect': 'none'
     	}
 
     	if(this.state.state === 2 && this.state.latitude < 62){

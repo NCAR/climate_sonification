@@ -966,12 +966,12 @@ class AllTogether extends Simulation {
     		border: '1px solid red',
     		backgroundColor: 'white',
     		lineHeight: 1,
-    		'-webkit-touch-callout': 'none',
-    		'-webkit-user-select': 'none',
-    		'-khtml-user-select': 'none',
-    		'-moz-user-select': 'none',
-    		'-ms-user-select': 'none',
-    		'user-select': 'none'
+    		'WebkitTouchCallout': 'none',
+    		'WebkitUserSelect': 'none',
+    		'KhtmlUserSelect': 'none',
+    		'MozUserSelect': 'none',
+    		'MsUserSelect': 'none',
+    		'UserSelect': 'none'
     	}
 
 
@@ -986,12 +986,12 @@ class AllTogether extends Simulation {
     		border: '1px solid red',
     		backgroundColor: 'white',
     		lineHeight: 1,
-    		'-webkit-touch-callout': 'none',
-    		'-webkit-user-select': 'none',
-    		'-khtml-user-select': 'none',
-    		'-moz-user-select': 'none',
-    		'-ms-user-select': 'none',
-    		'user-select': 'none'
+    		'WebkitTouchCallout': 'none',
+    		'WebkitUserSelect': 'none',
+    		'KhtmlUserSelect': 'none',
+    		'MozUserSelect': 'none',
+    		'MsUserSelect': 'none',
+    		'UserSelect': 'none'
     	}
 
 	centerX = modelLeft + modelDiv / 2;
@@ -1005,12 +1005,12 @@ class AllTogether extends Simulation {
     		border: '1px solid red',
     		backgroundColor: 'white',
     		lineHeight: 1,
-    		'-webkit-touch-callout': 'none',
-    		'-webkit-user-select': 'none',
-    		'-khtml-user-select': 'none',
-    		'-moz-user-select': 'none',
-    		'-ms-user-select': 'none',
-    		'user-select': 'none'
+    		'WebkitTouchCallout': 'none',
+    		'WebkitUserSelect': 'none',
+    		'KhtmlUserSelect': 'none',
+    		'MozUserSelect': 'none',
+    		'MsUserSelect': 'none',
+    		'UserSelect': 'none'
     	}
 
     	centerX = modelLeft + modelDiv + modelDiv / 2;
@@ -1024,12 +1024,12 @@ class AllTogether extends Simulation {
     		border: '1px solid red',
     		backgroundColor: 'white',
     		lineHeight: 1,
-    		'-webkit-touch-callout': 'none',
-    		'-webkit-user-select': 'none',
-    		'-khtml-user-select': 'none',
-    		'-moz-user-select': 'none',
-    		'-ms-user-select': 'none',
-    		'user-select': 'none'
+    		'WebkitTouchCallout': 'none',
+    		'WebkitUserSelect': 'none',
+    		'KhtmlUserSelect': 'none',
+    		'MozUserSelect': 'none',
+    		'MsUserSelect': 'none',
+    		'UserSelect': 'none'
     	}
 
     	/* adjusdments for polar coords, not very accurate */
@@ -1077,12 +1077,12 @@ class AllTogether extends Simulation {
     		border: '1px solid red',
     		backgroundColor: 'white',
     		lineHeight: 1,
-    		'-webkit-touch-callout': 'none',
-    		'-webkit-user-select': 'none',
-    		'-khtml-user-select': 'none',
-    		'-moz-user-select': 'none',
-    		'-ms-user-select': 'none',
-    		'user-select': 'none'
+    		'WebkitTouchCallout': 'none',
+    		'WebkitUserSelect': 'none',
+    		'KhtmlUserSelect': 'none',
+    		'MozUserSelect': 'none',
+    		'MsUserSelect': 'none',
+    		'UserSelect': 'none'
     	}
 
 	centerX = modelLeft + 2 * modelDiv + modelDiv / 2;
@@ -1096,12 +1096,12 @@ class AllTogether extends Simulation {
     		border: '1px solid red',
     		backgroundColor: 'white',
     		lineHeight: 1,
-    		'-webkit-touch-callout': 'none',
-    		'-webkit-user-select': 'none',
-    		'-khtml-user-select': 'none',
-    		'-moz-user-select': 'none',
-    		'-ms-user-select': 'none',
-    		'user-select': 'none'
+    		'WebkitTouchCallout': 'none',
+    		'WebkitUserSelect': 'none',
+    		'KhtmlUserSelect': 'none',
+    		'MozUserSelect': 'none',
+    		'MsUserSelect': 'none',
+    		'UserSelect': 'none'
     	}
 
     	if(this.state.latitude < 62){

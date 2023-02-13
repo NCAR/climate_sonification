@@ -1,36 +1,37 @@
 {
-  "name": "packagetest",
+  "name": "climate-sonification",
   "version": "0.1.0",
   "homepage": ".",
   "private": true,
   "dependencies": {
-    "@react-native-community/masked-view": "^0.1.10",
+    "@react-native-masked-view/masked-view": "^0.2.8",
     "@react-navigation/native": "^5.9.3",
     "@react-navigation/stack": "^5.14.3",
-    "@testing-library/jest-dom": "^5.11.9",
-    "@testing-library/react": "^11.2.5",
-    "@testing-library/user-event": "^12.8.0",
+    "@testing-library/jest-dom": "^5.16.5",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
     "axios": "^0.21.1",
     "pubsub-js": "^1.9.3",
-    "react": "17.0.1",
-    "react-device-detect": "^1.17.0",
-    "react-dom": "^17.0.1",
-    "react-native": "0.64.1",
+    "react": "^18.2.0",
+    "react-device-detect": "^2.2.3",
+    "react-dom": "^18.2.0",
+    "react-native": "^0.71.2",
     "react-native-gesture-handler": "^1.10.3",
     "react-native-reanimated": "^1.13.2",
     "react-native-safe-area-context": "^3.1.9",
     "react-native-screens": "^2.18.0",
     "react-native-web": "^0.15.0",
     "react-navigation": "^4.4.4",
-    "react-scripts": "4.0.3",
+    "react-scripts": "5.0.1",
     "tone": "^14.7.77",
-    "web-vitals": "^1.1.0"
+    "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "deploy": "npm run build && aws s3 cp build/ s3://listentoclimatechange.com --recursive"
   },
   "eslintConfig": {
     "extends": [
