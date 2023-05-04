@@ -544,7 +544,8 @@ class EachAlone extends Simulation {
 
     /*** request all years for a specific coordinate, using avg table
     TODO: Add more error handling ***/
-    coordApi = (request) => {
+	coordApi = (request) =>
+	{
     	if(cancelCoord !== undefined){
     		cancelCoord();
     	}
@@ -682,14 +683,28 @@ class EachAlone extends Simulation {
 			intermediate1 = dbUrl.concat("seaice001/coord/");
 			intermediate2 = dbUrl.concat("seaice002/coord/");
 		}
-		var request = intermediate.concat(dbX.toString(10)).concat(",").concat(dbY.toString(10)).concat(".txt");
-		//console.log(request);
-		this.setState({waiting: 3});
-		this.coordApi(request);
-		request = intermediate1.concat(dbX.toString(10)).concat(",").concat(dbY.toString(10)).concat(".txt");
-		this.coordApi1(request);
-		request = intermediate2.concat(dbX.toString(10)).concat(",").concat(dbY.toString(10)).concat(".txt");
-		this.coordApi2(request);
+		
+
+		this.setState({ waiting: 3 }, function() {
+			//console.log(this.state.waiting);
+			var request = intermediate.concat(dbX.toString(10)).concat(",").concat(dbY.toString(10)).concat(".txt");
+			//console.log(request);
+			this.coordApi(request);
+			this.setState({ waiting: 2 }, function ()
+			{	
+			    var request1 = intermediate1.concat(dbX.toString(10)).concat(",").concat(dbY.toString(10)).concat(".txt");
+				//console.log(request);
+				this.coordApi1(request1);
+
+				this.setState({ waiting: 1 }, function ()
+				{	
+					var request2 = intermediate2.concat(dbX.toString(10)).concat(",").concat(dbY.toString(10)).concat(".txt");
+					//console.log(request);
+					this.coordApi2(request2);
+				});
+			});
+		});
+		
 	}
     };
 
