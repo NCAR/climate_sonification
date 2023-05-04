@@ -1218,7 +1218,7 @@ class EachAlone extends Simulation {
 
 			<form>
 				<div style={dataBlockStyle}>
-					<label for='lat' style={labelControlStyle}> Lat:</label>
+					<label htmlFor='lat' style={labelControlStyle}> Lat:</label>
 					<input type='text' style={inputControlStyle} id='lat' value={this.state.latitude} onChange={this.onChangeLat}/>
 					<label htmlFor='lon' style={labelControlStyle}> Lon:</label>
 					<input type='text' style={inputControlStyle} id='lon' value={this.state.longitude} onChange={this.onChangeLon} />

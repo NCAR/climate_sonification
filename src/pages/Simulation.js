@@ -13,8 +13,8 @@ export class Simulation extends Page {
 
 	constructor(props){
 	    super(props)
-		this.state.pageBottom = window.clientHeight - this.state.PADDING;
-		this.state.pageRight = window.clientWidth - this.state.PADDING;
+		this.state.pageBottom = window.innerHeight - this.state.PADDING;
+		this.state.pageRight = window.innerWidth - this.state.PADDING;
 		this.state.index = 0;
 		this.state.play = 0;
 		this.state.waiting = 0;
@@ -27,6 +27,7 @@ export class Simulation extends Page {
 		this.state.CONTROLDIV = 2 / 10;
 		this.state.CONTROLVERTDIV = 1;
 		this.state.SKINNYDIV = 1 / 20;
+		this.state.DATAVERTDIV = 1 / 20;
 		this.state.MAPDIV = 3 / 4;
 		this.state.MAPVERTDIV = 3 / 4;
 		this.state.GRAPHVERTDIV = 2 / 10;
@@ -988,7 +989,7 @@ export class Simulation extends Page {
 
     	var controlWidth = this.state.pageRight * this.state.CONTROLDIV;
     	var controlHeight = this.state.pageBottom * this.state.CONTROLVERTDIV;
-
+		
     	var skinnyWidth = Math.floor(this.state.pageRight * this.state.SKINNYDIV);
 
     	var smallFontSize = Math.floor(this.state.pageRight / 200 + this.state.pageBottom / 120);
@@ -1090,7 +1091,7 @@ export class Simulation extends Page {
 
     	var keyContainer = {
     		width: Math.floor(this.state.pageRight * this.state.CONTROLDIV * this.state.CONTROLSPLIT),
-    		height: Math.floor(this.state.pageBottom * this.state.CONTROLDVERTDIV * 3 / 20),
+    		height: Math.floor(this.state.pageBottom * this.state.CONTROLVERTDIV * 3 / 20),
     		float: 'left',
     		overflow: 'hidden'
     	};
@@ -1219,7 +1220,7 @@ export class Simulation extends Page {
     		};
     		keyContainer = {
     			width: Math.floor(this.state.pageRight * this.state.CONTROLDIV * this.state.CONTROLSPLIT),
-    			height: Math.floor(this.state.pageBottom * this.state.CONTROLDVERTDIV * 1 / (2 * 1 - this.state.CONTROLVERTDIV)),
+    			height: Math.floor(this.state.pageBottom * this.state.CONTROLVERTDIV * 1 / (2 * 1 - this.state.CONTROLVERTDIV)),
     			float: 'left',
     			overflow: 'hidden'
     		};
