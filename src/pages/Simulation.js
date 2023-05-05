@@ -140,7 +140,7 @@ export class Simulation extends Page {
     /*** set co2 notes ***/
     setPianoNotes = (data) => {
 	if(data.length === 0){
-		console.log("co2 data failed to load");
+		//console.log("co2 data failed to load");
 		return -1;
 	}
 	var pianoNoteArr = [];
@@ -723,15 +723,29 @@ export class Simulation extends Page {
 	const delay = Math.random() / 100;
 	const plus = '+';
 	const plusDelay = plus.concat(delay);
-	const note = this.getNote(type, val, getScale(this.state.index));
-	this.setState({notePlaying:1});
-	Tone.Transport.scheduleOnce((time) => {
-		synth.triggerAttackRelease(note, '8n', plusDelay);
-	}, '+0');
-	Tone.Transport.scheduleOnce((time) => {
-		this.setState({notePlaying:0});
-		synth.dispose();
-	}, '+2n');
+		const note = this.getNote(type, val, getScale(this.state.index));
+		//console.log('note: ' + note);
+		
+
+	this.setState({ notePlaying: 1 }, function() {
+		//console.log('note 1: ' + this.state.notePlaying);
+		//console.log('play state ' + this.state.play);
+		Tone.Transport.scheduleOnce((time) =>
+		{
+			//console.log('pre trigger attack release')
+			synth.triggerAttackRelease(note, '8n', plusDelay);
+			//console.log('trigger attack release');
+		}, '+0');
+		Tone.Transport.scheduleOnce((time) =>
+		{
+			//console.log('pre setting note to 0')
+			this.setState({ notePlaying: 0 }, function() {
+				//console.log('note 0: '+this.state.notePlaying);
+				synth.dispose();
+			});
+		}, '+2n');
+	});
+		
     }
 
     playNoteByValKey = (type, val, index, data) => {
@@ -751,8 +765,10 @@ export class Simulation extends Page {
     }
 
     /*** start tranport to play the map ***/
-    setupMapTransport = (e) => {
-	//console.log(Tone.Transport.state);
+	setupMapTransport = (e) =>
+	{
+		//console.log('setup map transport***');
+	////console.log(Tone.Transport.state);
 	Tone.Transport.start('+0');
 	this.setModerato();
 	this.onMouseDown(e);
@@ -760,7 +776,9 @@ export class Simulation extends Page {
 
     /*** stop tranport to play the map ***/
     killMapTransport = (e) => {
-   	Tone.Transport.scheduleOnce((time) => {
+		Tone.Transport.scheduleOnce((time) =>
+		{
+			//console.log('killmaptransport');
 	this.setState({notePlaying:0});
 		Tone.Transport.cancel('+0');
     		Tone.Transport.stop('+0');
@@ -1369,11 +1387,11 @@ export class Simulation extends Page {
     /*** These should never run because each class has separate functions,
     *** but these are here to keep react from complaining ***/
     componentDidMount = () => {
-    	console.log("class fail");
+    	//console.log("class fail");
     }
 
     componentWillUnmount = () => {
-    	console.log("class fail");
+    	//console.log("class fail");
     }
 
     render(){

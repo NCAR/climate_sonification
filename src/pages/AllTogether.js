@@ -97,7 +97,9 @@ class AllTogether extends Simulation {
     /*** When map coord is selected, do db query ***/
     onPointerUp = (e) => {
     	this.killMapTransport(e);
-    	if(this.state.play === 0){
+		if (this.state.play === 0)
+		{
+			//console.log('state ply is 0 on pointerup');
     		this.doCoordHits(this.state.latitude, this.state.longitude);
     	}
     }
@@ -406,7 +408,7 @@ class AllTogether extends Simulation {
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				//console.log('precip year request cancelled');
+    				////console.log('precip year request cancelled');
     			}
     		});
     }
@@ -426,7 +428,7 @@ class AllTogether extends Simulation {
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				//console.log('temp year request cancelled');
+    				////console.log('temp year request cancelled');
     			}
     		});
     }
@@ -446,7 +448,7 @@ class AllTogether extends Simulation {
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				//console.log('ice year request cancelled');
+    				////console.log('ice year request cancelled');
     			}
     		});
     }
@@ -464,7 +466,7 @@ class AllTogether extends Simulation {
     	if(this.state.play === 0){
     		this.setState({ useArray: this.state.useArray + 1 });
     	}
-    	//console.log(arrayNum, data);
+    	////console.log(arrayNum, data);
     }
 
     /*** query db for all coords at a specific year ***/
@@ -566,7 +568,7 @@ class AllTogether extends Simulation {
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				//console.log('precip coord request cancelled');
+    				////console.log('precip coord request cancelled');
     			}
     		});
     }
@@ -590,7 +592,7 @@ class AllTogether extends Simulation {
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				//console.log('precip1 coord request cancelled');
+    				////console.log('precip1 coord request cancelled');
     			}
     		});
     }
@@ -614,7 +616,7 @@ class AllTogether extends Simulation {
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				//console.log('temp coord request cancelled');
+    				////console.log('temp coord request cancelled');
     			}
     		});
     }
@@ -638,7 +640,7 @@ class AllTogether extends Simulation {
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				//console.log('temp1 coord request cancelled');
+    				////console.log('temp1 coord request cancelled');
     			}
     		});
     }
@@ -662,7 +664,7 @@ class AllTogether extends Simulation {
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				//console.log('ice coord request cancelled');
+    				////console.log('ice coord request cancelled');
     			}
     		});
     }
@@ -686,7 +688,7 @@ class AllTogether extends Simulation {
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				//console.log('ice1 coord request cancelled');
+    				////console.log('ice1 coord request cancelled');
     			}
     		});
     }
@@ -695,31 +697,31 @@ class AllTogether extends Simulation {
     setAvgAllYears = (res, arrayNum) => {
     	const data = res.data.data;
     	var curwait = this.state.waiting;
-		console.log('curwait ' + curwait);
+		////console.log('curwait ' + curwait);
 
 		if (arrayNum === 0)
 		{
-			console.log('in here ' + arrayNum);
+			////console.log('in here ' + arrayNum);
     		this.setState({ precipAvg: [...data] });
     		this.setPrecipNotes(data);
     	}else if(arrayNum === 1){
-			console.log('in here ' + arrayNum);
+			////console.log('in here ' + arrayNum);
     		this.setState({ tempAvg: [...data] });
     		this.setTempNotes(data);
     	}else if(arrayNum === 2){
-			console.log('in here ' + arrayNum);
+			////console.log('in here ' + arrayNum);
     		this.setState({ iceAvg: [...data] });
     		this.setIceNotes(data);
     	}else if(arrayNum === 3){
-			console.log('in here ' + arrayNum);
+			////console.log('in here ' + arrayNum);
     		this.setState({ precip1: [...data] });
     		this.setPrecipNotes1(data);
     	}else if(arrayNum === 4){
-			console.log('in here ' + arrayNum);
+			////console.log('in here ' + arrayNum);
     		this.setState({ temp1: [...data] });
     		this.setTempNotes1(data);
     	}else if(arrayNum === 5){
-			console.log('in here ' + arrayNum);
+			////console.log('in here ' + arrayNum);
     		this.setState({ ice1: [...data] });
     		this.setIceNotes1(data);
     	}
@@ -728,7 +730,7 @@ class AllTogether extends Simulation {
 
     	this.setupGraph();
     	this.updateGraph();
-    	//console.log(arrayNum, data);
+    	////console.log(arrayNum, data);
     }
 
     /*** query db for all years of a specific coord ***/
@@ -763,7 +765,7 @@ class AllTogether extends Simulation {
     /*** Run this when play button is pressed ***/
 	playMusic = () => {
 		if(this.state.waiting > 0){
-			console.log('waiting');
+			//console.log('waiting');
 			return;
 		}
 		var newind = this.state.index;

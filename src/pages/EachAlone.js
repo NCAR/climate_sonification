@@ -45,12 +45,20 @@ class EachAlone extends Simulation {
     /*** Run this when stop is pressed or when index === 180 ***/
 	stopMusic = (terminate) =>
 	{
-		this.setState({ play: 0, playButton: playUrl });
-		Tone.Transport.stop();
-		Tone.Transport.cancel(0);
-		if(terminate === 0){
-			this.doYearHits(this.state.state, this.state.index + 1920);
-		}
+		//console.log('stopping');
+
+		this.setState({
+			play: 0,
+			playButton: playUrl
+		}, function ()
+		{
+			Tone.Transport.stop();
+			Tone.Transport.cancel(0);
+			if(terminate === 0){
+				this.doYearHits(this.state.state, this.state.index + 1920);
+			}
+		});
+		
     }
 
     /*** onPress for 'Precipitation' Button ***/
@@ -125,9 +133,14 @@ class EachAlone extends Simulation {
     }
 
     /*** Queries db upon mouse/finger release from map, only if simulation stopped ***/
-    onPointerUp = (e) => {
+	onPointerUp = (e) =>
+	{
+		//console.log('kill map transport on pointer up');
+		//console.log('play state : '+ this.state.play);
     	this.killMapTransport(e);
-    	if(this.state.play === 0){
+		if (this.state.play === 0)
+		{
+			//console.log('do coord hits because play state was 0');
     		this.doCoordHits(this.state.state, this.state.latitude, this.state.longitude);
     	}
     }
@@ -179,11 +192,14 @@ class EachAlone extends Simulation {
     	//check if mouse is clicked
     	if(e.buttons !== 1){
     		return -1;
-    	}
+		}
+		//console.log('play state: '+this.state.play);
     	if(this.state.play === 1){
     		this.stopMusic(0);
     	}
-    	if(this.state.notePlaying !== 0){
+		if (this.state.notePlaying !== 0)
+		{
+			//console.log('note playing !== 0');
     		return;
     	}
     	/* A bunch of variables used to calculate mouse position */
@@ -263,21 +279,28 @@ class EachAlone extends Simulation {
 	latSave = Math.min(latSave, 90);
 	lonSave = Math.max(lonSave, -180);
 	lonSave = Math.min(lonSave, 180);
-    	this.setState({
+		this.setState({
     		latitude: Math.floor(latSave),
     		longitude: Math.floor(lonSave),
     		useArray: 0
-    	});
+		}, function ()
+		{
+			//get new data values and play sound
+			var {dbX, dbY} = this.getDBCoords();
+			var coord_index = this.getDBIndex(dbX, dbY);
 
-    	//get new data values and play sound
-    	var {dbX, dbY} = this.getDBCoords();
-    	var coord_index = this.getDBIndex(dbX, dbY);
-    	if(this.state.yearData.length >= coord_index){
-    		var val0 = this.getValByCoord(this.state.yearData, coord_index);
-    		this.playNoteByVal(this.state.state, val0, this.state.index, this.state.coordData);
-    		var co2_val = this.state.co2data[this.state.index].co2_val;
-    		this.playNoteByVal(3, co2_val, this.state.index, this.state.co2data);
-	}
+			if(this.state.yearData.length >= coord_index){
+				var val0 = this.getValByCoord(this.state.yearData, coord_index);
+				//console.log('calling playnotebyval');
+				//console.log('play state: '+this.state.play);
+
+				this.playNoteByVal(this.state.state, val0, this.state.index, this.state.coordData);
+				var co2_val = this.state.co2data[this.state.index].co2_val;
+				this.playNoteByVal(3, co2_val, this.state.index, this.state.co2data);
+			}
+		});
+
+    	
     }
 
     /*** Writes data to the graph ***/
@@ -453,11 +476,11 @@ class EachAlone extends Simulation {
     			else{
     				this.setState({ yearData: [...year_data]});
     			}
-    			//console.log(year_data);
+    			////console.log(year_data);
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				console.log('year request cancelled');
+    				//console.log('year request cancelled');
     			}
     		});
     }
@@ -565,7 +588,7 @@ class EachAlone extends Simulation {
     			});
     			this.setupGraph();
     			this.updateGraph();
-    			//console.log(coord_data);
+    			////console.log(coord_data);
     			if(this.state.state === 0){
    	 			this.setPrecipNotes(coord_data);
     			}else if(this.state.state === 1){
@@ -576,7 +599,7 @@ class EachAlone extends Simulation {
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				console.log('coord request cancelled');
+    				//console.log('coord request cancelled');
 
     			}
     		});
@@ -602,7 +625,7 @@ class EachAlone extends Simulation {
     			});
     			this.setupGraph();
     			this.updateGraph();
-    			//console.log(coord_data);
+    			////console.log(coord_data);
     			if(this.state.state === 0){
    	 			this.setPrecipNotes1(coord_data);
     			}else if(this.state.state === 1){
@@ -613,7 +636,7 @@ class EachAlone extends Simulation {
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				console.log('coord1 request cancelled');
+    				//console.log('coord1 request cancelled');
 
     			}
     		});
@@ -639,7 +662,7 @@ class EachAlone extends Simulation {
     			});
     			this.setupGraph();
     			this.updateGraph();
-    			//console.log(coord_data);
+    			////console.log(coord_data);
     			if(this.state.state === 0){
    	 			this.setPrecipNotes2(coord_data);
     			}else if(this.state.state === 1){
@@ -650,7 +673,7 @@ class EachAlone extends Simulation {
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
-    				console.log('coord2 request cancelled');
+    				//console.log('coord2 request cancelled');
 
     			}
     		});
@@ -687,20 +710,20 @@ class EachAlone extends Simulation {
 		
 
 		this.setState({ waiting: 3 }, function() {
-			//console.log(this.state.waiting);
+			////console.log(this.state.waiting);
 			var request = intermediate.concat(dbX.toString(10)).concat(",").concat(dbY.toString(10)).concat(".txt");
-			//console.log(request);
+			////console.log(request);
 			this.coordApi(request);
 			this.setState({ waiting: 2 }, function ()
 			{	
 			    var request1 = intermediate1.concat(dbX.toString(10)).concat(",").concat(dbY.toString(10)).concat(".txt");
-				//console.log(request);
+				////console.log(request);
 				this.coordApi1(request1);
 
 				this.setState({ waiting: 1 }, function ()
 				{	
 					var request2 = intermediate2.concat(dbX.toString(10)).concat(",").concat(dbY.toString(10)).concat(".txt");
-					//console.log(request);
+					////console.log(request);
 					this.coordApi2(request2);
 				});
 			});
@@ -799,11 +822,11 @@ class EachAlone extends Simulation {
     /*** Start music ***/
     playMusic = () => {
     	if(this.state.waiting > 0){
-    		console.log('waiting');
+    		//console.log('waiting');
     		return;
 		} else
 		{
-			console.log('play')
+			//console.log('play')
 		}
     	var newind = this.state.index;
 	if(newind === 180){
