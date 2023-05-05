@@ -557,8 +557,12 @@ class AllTogether extends Simulation {
     				cancelCoordPrecip = c;
     			})
     		})
-    		.then(res => {
-			this.setAvgAllYears(res, 0);
+			.then(res =>
+			{
+				this.setState({ waiting: 5 }, function ()
+				{		
+					this.setAvgAllYears(res, 0);
+				});
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
@@ -579,7 +583,10 @@ class AllTogether extends Simulation {
     			})
     		})
     		.then(res => {
-			this.setAvgAllYears(res, 3);
+				this.setState({ waiting: 2 }, function ()
+				{		
+					this.setAvgAllYears(res, 3);
+				});
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
@@ -600,7 +607,10 @@ class AllTogether extends Simulation {
     			})
     		})
     		.then(res => {
-    			this.setAvgAllYears(res, 1);
+    			this.setState({ waiting: 4 }, function ()
+				{		
+					this.setAvgAllYears(res, 1);
+				});
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
@@ -621,7 +631,10 @@ class AllTogether extends Simulation {
     			})
     		})
     		.then(res => {
-    			this.setAvgAllYears(res, 4);
+    			this.setState({ waiting: 1 }, function ()
+				{		
+					this.setAvgAllYears(res, 4);
+				});
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
@@ -642,7 +655,10 @@ class AllTogether extends Simulation {
     			})
     		})
     		.then(res => {
-    			this.setAvgAllYears(res, 2);
+    			this.setState({ waiting: 3 }, function ()
+				{		
+					this.setAvgAllYears(res, 2);
+				});
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
@@ -663,7 +679,10 @@ class AllTogether extends Simulation {
     			})
     		})
     		.then(res => {
-    			this.setAvgAllYears(res, 5);
+    			this.setState({ waiting: 0 }, function ()
+				{		
+					this.setAvgAllYears(res, 5);
+				});
     		})
     		.catch((error) => {
     			if(Axios.isCancel(error)){
@@ -676,28 +695,36 @@ class AllTogether extends Simulation {
     setAvgAllYears = (res, arrayNum) => {
     	const data = res.data.data;
     	var curwait = this.state.waiting;
+		console.log('curwait ' + curwait);
 
-    	if(arrayNum === 0){
+		if (arrayNum === 0)
+		{
+			console.log('in here ' + arrayNum);
     		this.setState({ precipAvg: [...data] });
     		this.setPrecipNotes(data);
     	}else if(arrayNum === 1){
+			console.log('in here ' + arrayNum);
     		this.setState({ tempAvg: [...data] });
     		this.setTempNotes(data);
     	}else if(arrayNum === 2){
+			console.log('in here ' + arrayNum);
     		this.setState({ iceAvg: [...data] });
     		this.setIceNotes(data);
     	}else if(arrayNum === 3){
+			console.log('in here ' + arrayNum);
     		this.setState({ precip1: [...data] });
     		this.setPrecipNotes1(data);
     	}else if(arrayNum === 4){
+			console.log('in here ' + arrayNum);
     		this.setState({ temp1: [...data] });
     		this.setTempNotes1(data);
     	}else if(arrayNum === 5){
+			console.log('in here ' + arrayNum);
     		this.setState({ ice1: [...data] });
     		this.setIceNotes1(data);
     	}
 
-    	this.setState({ waiting: curwait - 1 });
+    	//this.setState({ waiting: curwait - 1 });
 
     	this.setupGraph();
     	this.updateGraph();

@@ -43,13 +43,14 @@ class EachAlone extends Simulation {
     }
 
     /*** Run this when stop is pressed or when index === 180 ***/
-    stopMusic = (terminate) => {
-	this.setState({ play: 0, playButton: playUrl });
-	Tone.Transport.stop();
-	Tone.Transport.cancel(0);
-	if(terminate === 0){
-		this.doYearHits(this.state.state, this.state.index + 1920);
-	}
+	stopMusic = (terminate) =>
+	{
+		this.setState({ play: 0, playButton: playUrl });
+		Tone.Transport.stop();
+		Tone.Transport.cancel(0);
+		if(terminate === 0){
+			this.doYearHits(this.state.state, this.state.index + 1920);
+		}
     }
 
     /*** onPress for 'Precipitation' Button ***/
@@ -800,7 +801,10 @@ class EachAlone extends Simulation {
     	if(this.state.waiting > 0){
     		console.log('waiting');
     		return;
-    	}
+		} else
+		{
+			console.log('play')
+		}
     	var newind = this.state.index;
 	if(newind === 180){
 		newind = 0;
@@ -850,13 +854,15 @@ class EachAlone extends Simulation {
 		pianoPattern.start(0);
 		Tone.Transport.start('+0');
 	} else {
-		Tone.start().then(() => {
-			this.setState({ audioAvailable: true })
-			notePattern.start(0);
-			notePattern1.start(0);
-			notePattern2.start(0);
-			pianoPattern.start(0);
-			Tone.Transport.start('+0');
+		Tone.start().then(() =>
+		{
+			this.setState({ audioAvailable: true }, function() {
+				notePattern.start(0);
+				notePattern1.start(0);
+				notePattern2.start(0);
+				pianoPattern.start(0);
+				Tone.Transport.start('+0');
+			});
 		}).catch(error => console.error(error));
 	}
     }
