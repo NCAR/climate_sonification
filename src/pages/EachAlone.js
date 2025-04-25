@@ -733,9 +733,20 @@ class EachAlone extends Simulation {
     };
 
     /*** Start transport when mousedown on model keys ***/
-    setupTransport = (e) => {
-    		Tone.Transport.start('+0');
-    		this.testMusic(e);
+    setupTransport = async (e) => {
+    	//	Tone.Transport.start('+0');
+		//	this.testMusic(e);
+		// comment out above and do below on 4-25-2025 after web errors
+		try {
+			await Tone.start();
+			this.setState({ audioAvailable: true });
+			console.log('AudioContext started');
+			Tone.Transport.start('+0');
+			this.testMusic(e);
+		} catch (error) {
+			console.error('Error starting AudioContext:', error);
+		}
+
     }
 
     /*** Determines what value is being pressed on model key and play note
