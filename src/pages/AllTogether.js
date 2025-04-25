@@ -492,7 +492,7 @@ class AllTogether extends Simulation {
   /*** get all avg precip values for a specific year ***/
 	precipYearApi = (request) =>
 	{
-		console.log(request);
+		//console.log(request);
     if (cancelYearPrecip !== undefined) {
       cancelYearPrecip();
     }
@@ -516,7 +516,7 @@ class AllTogether extends Simulation {
 
   /*** get all avg temp values for a specific year ***/
   tempYearApi = (request) => {
-		console.log(request);
+		//console.log(request);
     if (cancelYearTemp !== undefined) {
       cancelYearIce();
     }
@@ -539,7 +539,7 @@ class AllTogether extends Simulation {
 
   /*** get all avg sea ice values for a specific year ***/
   iceYearApi = (request) => {
-		console.log(request);
+		//console.log(request);
     if (cancelYearIce !== undefined) {
       cancelYearIce();
     }
