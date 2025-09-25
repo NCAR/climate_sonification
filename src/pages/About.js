@@ -130,7 +130,7 @@ class About extends Page {
 		const pageStyle = this.getPageStyle();
 
 		const titleText = this.getTitleText();
-    const rtnBtn = this.getRtnBtnText();
+        const rtnBtn = this.getRtnBtnText();
 		const q0 = this.getQ0();
 		const text0 = this.getInfo0();
 		const q1 = this.getQ1();

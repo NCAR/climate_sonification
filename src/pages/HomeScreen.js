@@ -35,38 +35,65 @@ class HomeScreen extends Page {
     }
 
     /*** return html ***/
-    render(){
+	render()
+	{
 
-    const { navigation } = this.props;
+		const { navigation } = this.props;
 
 
 
-    return (
-	<div className={'hp-container'}>
+		return (
+      <div className={"hp-container"}>
+        {/* Row for title text */}
+        <h1 className={"hp-title-container"}>Sounding Climate</h1>
+        {/* Row for description text */}
+        <p className={"hp-desc-container"}>
+          {" "}
+          What do changes in temperature, precipitation, and sea ice sound
+          like...{" "}
+        </p>
 
-		{/* Row for title text */}
-      <h1 className={'hp-title-container'}>Sounding Climate</h1>
-		{/* Row for description text */}
-      <p className={'hp-desc-container'}> What do changes in temperature, precipitation, and sea ice sound like... </p>
+        {/* Row for start buttons */}
+        <div className={"hp-btn-container"}>
+          <button
+            onClick={() => navigation.navigate("EachAlone")}
+            className={"hpBtn"}
+          >
+            <img
+              className={"hp-btn"}
+              alt="each on its own"
+              src={eachAloneButton}
+            />
+          </button>
+          <button
+            onClick={() => navigation.navigate("AllTogether")}
+            className={"hpBtn"}
+          >
+            <img
+              className={"hp-btn"}
+              alt="all together"
+              src={allTogetherButton}
+            />
+          </button>
+        </div>
 
-		{/* Row for start buttons */}
-		<div className={'hp-btn-container'}>
-    <button onClick={() => navigation.navigate('EachAlone')} className={'hpBtn'}>
-			<img className={'hp-btn'} alt="each on its own" src={eachAloneButton} />
-      </button>
-      <button onClick={() => navigation.navigate('AllTogether')} className={'hpBtn'}>
-      <img className={'hp-btn'} alt="all together" src={allTogetherButton}/></button>
-		</div>
-
-		{/* Row for qr */}
-		<div className={'hp-qr-container'}>
-			<a href="https://bit.ly/sounding-climate-article"><img className={'hp-qr'} alt="link to article" src={qrImg} onPointerDown={redirect} /></a>
-    </div>
-    <div className={'hp-link-container'}>
-      <a href="https://bit.ly/sounding-climate-article">40 Earths: NCAR'S Large Ensemble Reveals Staggering Climate Variability &raquo;</a>
-		</div>
-    </div>
-
+        {/* Row for qr */}
+        <div className={"hp-qr-container"}>
+          <a href="https://bit.ly/sounding-climate-article">
+            <img
+              className={"hp-qr"}
+              alt="link to article"
+              src={qrImg}
+              onPointerDown={redirect}
+            />
+          </a>
+        </div>
+        {
+          //<div className={'hp-link-container'}>
+          //	<a href="https://bit.ly/sounding-climate-article">40 Earths: NCAR'S Large Ensemble Reveals Staggering Climate Variability &raquo;</a>
+          //</div>
+        }
+      </div>
     );
     }
 }
