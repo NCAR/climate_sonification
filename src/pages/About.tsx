@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { useNavigationShim } from "../routing/useNavigationShim.js";
-
+import type { CSSProperties } from "react";
 const PADDING = 40;
 
 const TITLE_TEXT = "Frequently Asked Questions";
@@ -35,20 +35,20 @@ const MORE_INFO = [
   "Contributors to the project: Adam S. Phillips (NCAR) for providing the model data, Timothy Scheitlin (NCAR) for providing the graphics, Sharon Clark for providing ongoing development support, Becca Hatheway for providing user testing and feedback, Marty Quinn for the original sonification development, and Clara Deser for scientific and artistic guidance. This website was developed by Nick Vomund, with the original API written by Garrett Hempy, sonification by Mattias Leino, and support by Priyanka Karki, Fahad Shaik, and Zhaoyi Xie.",
 ];
 
-const outerStyle = {
+const outerStyle: CSSProperties = {
   minHeight: "100vh",
   width: "100%",
   backgroundColor: "white",
 };
 
-const contentStyle = {
+const contentStyle: CSSProperties = {
   maxWidth: "900px",
   margin: "0 auto",
   padding: PADDING / 2,
   backgroundColor: "white",
 };
 
-const headerStyle = {
+const headerStyle: CSSProperties = {
   position: "sticky",
   top: 0,
   backgroundColor: "white",

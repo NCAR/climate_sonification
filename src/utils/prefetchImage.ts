@@ -1,7 +1,7 @@
 // src/utils/prefetchImage.js
 const cache = new Map();
 
-export function prefetchImage(url) {
+export function prefetchImage(url:string) {
   if (!url) return Promise.resolve(false);
   if (cache.has(url)) return cache.get(url);
 
