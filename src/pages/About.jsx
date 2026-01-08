@@ -1,6 +1,6 @@
 import React from "react";
-import { useNavigationShim } from "../routing/useNavigationShim";
-import { Page } from "./Page.js";
+import { useNavigationShim } from "../routing/useNavigationShim.js";
+import { Page } from "./Page.jsx";
 
 class About extends Page {
   constructor(props) {

@@ -1,8 +1,8 @@
 import React from "react";
-import { useNavigationShim } from "../routing/useNavigationShim";
-import { Page } from "./Page.js";
+import { useNavigationShim } from "../routing/useNavigationShim.js";
+import { Page } from "./Page.jsx";
 import { isBrowser, isMobile } from "react-device-detect";
-import { eachAloneButton, allTogetherButton, qrImg } from "./../const/url.js";
+import { eachAloneButton, allTogetherButton, qrImg } from "../const/url.js";
 import "./HomeScreen.css";
 
 function redirect() {

@@ -1,9 +1,9 @@
 import React from "react";
 import * as Tone from "tone";
-import { Page } from "./Page.js";
-import { playUrl, loading, dbUrl } from "./../const/url.js";
+import { Page } from "./Page.jsx";
+import { playUrl, loading, dbUrl } from "../const/url.js";
 import Axios from "axios";
-import { SCALES, getScale } from "../const/scales";
+import { SCALES, getScale } from "../const/scales.js";
 
 /* used to wait a certain amount of ms */
 const timer = (ms) => new Promise((res) => setTimeout(res, ms));

@@ -2,10 +2,10 @@
 import * as React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-import HomeScreenWrapper from "./pages/HomeScreen.js";
-import AllTogetherWrapper from "./pages/AllTogether.js";
-import EachAloneWrapper from "./pages/EachAlone.js";
-import AboutWrapper from "./pages/About.js";
+import HomeScreenWrapper from "./pages/HomeScreen.jsx";
+import AllTogetherWrapper from "./pages/AllTogether.jsx";
+import EachAloneWrapper from "./pages/EachAlone.jsx";
+import AboutWrapper from "./pages/About.jsx";
 
 export default function App() {
   return (

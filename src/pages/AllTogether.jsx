@@ -1,13 +1,13 @@
-import { prefetchImage } from "../utils/prefetchImage";
+import { prefetchImage } from "../utils/prefetchImage.js";
 import React from "react";
 import { useNavigationShim } from "../routing/useNavigationShim.js";
 import Axios from "axios";
 import PubSub from "pubsub-js";
 import { isBrowser } from "react-device-detect";
-import { Simulation } from "./Simulation.js";
+import { Simulation } from "./Simulation.jsx";
 import * as Tone from "tone";
-import { getClosestCity, getInfo } from "./../const/cities.js";
-import { RED, YELLOW, GREEN, BLUE } from "./../const/color.js";
+import { getClosestCity, getInfo } from "../const/cities.js";
+import { RED, YELLOW, GREEN, BLUE } from "../const/color.js";
 
 import {
   combinedImgs,
@@ -24,7 +24,7 @@ import {
   togetherArtifactImgs,
   pauseUrl,
   playUrl,
-} from "./../const/url.js";
+} from "../const/url.js";
 
 function isNumeric(value) {
   return /^-?\d+$/.test(value);
