@@ -97,5 +97,8 @@ class HomeScreen extends Page {
 export default function HomeScreenWrapper(props) {
   const { navigation, route } = useNavigationShim();
 
-  return <HomeScreen {...props} navigation={navigation} route={route} />;
+  return (
+    <div className="homeBg">
+      <HomeScreen {...props} navigation={navigation} route={route} />
+    </div>);
 }

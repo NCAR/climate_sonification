@@ -1,4 +1,4 @@
-import { Image } from "react-native";
+import { prefetchImage } from "../utils/prefetchImage";
 import React from "react";
 import { useNavigationShim } from "../routing/useNavigationShim.js";
 import Axios from "axios";
@@ -70,7 +70,7 @@ class AllTogether extends Simulation {
       if (this.state.CONTROLVERTDIV !== 1) {
         keyLeft = Math.floor(this.state.pageRight / 20);
         keyRight = Math.floor(
-          this.state.pageRight / 20 + (this.state.pageRight * 19) / 20 / 3
+          this.state.pageRight / 20 + (this.state.pageRight * 19) / 20 / 3,
         );
       }
       var x = e.pageX - keyLeft;
@@ -92,10 +92,10 @@ class AllTogether extends Simulation {
       var keyRight = Math.floor((this.state.pageRight * 3) / 4);
       if (this.state.CONTROLVERTDIV !== 1) {
         keyLeft = Math.floor(
-          this.state.pageRight / 20 + (this.state.pageRight * 19) / 20 / 3
+          this.state.pageRight / 20 + (this.state.pageRight * 19) / 20 / 3,
         );
         keyRight = Math.floor(
-          this.state.pageRight / 20 + (2 * this.state.pageRight * 19) / 20 / 3
+          this.state.pageRight / 20 + (2 * this.state.pageRight * 19) / 20 / 3,
         );
       }
       var x = e.pageX - keyLeft;
@@ -117,7 +117,7 @@ class AllTogether extends Simulation {
       var keyRight = Math.floor(this.state.pageRight);
       if (this.state.CONTROLVERTDIV !== 1) {
         keyLeft = Math.floor(
-          this.state.pageRight / 20 + (2 * this.state.pageRight * 19) / 20 / 3
+          this.state.pageRight / 20 + (2 * this.state.pageRight * 19) / 20 / 3,
         );
         keyRight = Math.floor(this.state.pageRight);
       }
@@ -150,7 +150,7 @@ class AllTogether extends Simulation {
       return -1;
     }
     var modelSplit = Math.floor(
-      (this.state.pageBottom * this.state.MAPVERTDIV) / 2
+      (this.state.pageBottom * this.state.MAPVERTDIV) / 2,
     );
     var modelLeft =
       Math.floor(this.state.pageRight * (1 - this.state.MAPDIV)) +
@@ -250,7 +250,7 @@ class AllTogether extends Simulation {
         this.state.index,
         this.state.precipAvg,
         this.state.tempAvg,
-        this.state.iceAvg
+        this.state.iceAvg,
       );
     }
   };
@@ -272,13 +272,13 @@ class AllTogether extends Simulation {
     this.updateDimensions();
 
     togetherArtifactImgs.forEach((picture) => {
-      Image.prefetch(picture).catch((error) => {
+      prefetchImage(picture).catch((error) => {
         console.error("Image prefetch failed for", picture, error);
       });
     });
 
     combinedImgs.forEach((picture) => {
-      Image.prefetch(picture).catch((error) => {
+      prefetchImage(picture).catch((error) => {
         console.error("Image prefetch failed for", picture, error);
       });
     });
@@ -300,7 +300,7 @@ class AllTogether extends Simulation {
       var { step, avg, co2_median, co2_range, co2_avg } = this.getGraphDims();
 
       var { precip_median, precip_range } = this.getPrecipGraphVars(
-        this.state.precipAvg
+        this.state.precipAvg,
       );
 
       var prev_val = 0;
@@ -314,11 +314,11 @@ class AllTogether extends Simulation {
 
         ctx.moveTo(
           1 + step * (precipInd - 1),
-          avg + avg * ((precip_median - prev_val) / precip_range)
+          avg + avg * ((precip_median - prev_val) / precip_range),
         );
         ctx.lineTo(
           1 + step * precipInd,
-          avg + avg * ((precip_median - coord_val) / precip_range)
+          avg + avg * ((precip_median - coord_val) / precip_range),
         );
         ctx.strokeStyle = GREEN;
         ctx.lineWidth = 2;
@@ -332,11 +332,11 @@ class AllTogether extends Simulation {
 
         ctx.moveTo(
           1 + step * (precipInd - 1),
-          avg + avg * ((precip_median - prev_val) / precip_range)
+          avg + avg * ((precip_median - prev_val) / precip_range),
         );
         ctx.lineTo(
           1 + step * precipInd,
-          avg + avg * ((precip_median - coord_val) / precip_range)
+          avg + avg * ((precip_median - coord_val) / precip_range),
         );
         ctx.strokeStyle = GREEN;
         ctx.lineWidth = 1;
@@ -345,7 +345,7 @@ class AllTogether extends Simulation {
 
       var { temp_median, temp_range, temp_avg } = this.getTempGraphVars(
         this.state.tempAvg,
-        avg
+        avg,
       );
 
       //temp
@@ -356,11 +356,11 @@ class AllTogether extends Simulation {
 
         ctx.moveTo(
           1 + step * (tempInd - 1),
-          temp_avg + temp_avg * ((temp_median - prev_val) / temp_range)
+          temp_avg + temp_avg * ((temp_median - prev_val) / temp_range),
         );
         ctx.lineTo(
           1 + step * tempInd,
-          temp_avg + temp_avg * ((temp_median - coord_val) / temp_range)
+          temp_avg + temp_avg * ((temp_median - coord_val) / temp_range),
         );
         ctx.strokeStyle = RED;
         ctx.lineWidth = 2;
@@ -374,11 +374,11 @@ class AllTogether extends Simulation {
 
         ctx.moveTo(
           1 + step * (tempInd - 1),
-          temp_avg + temp_avg * ((temp_median - prev_val) / temp_range)
+          temp_avg + temp_avg * ((temp_median - prev_val) / temp_range),
         );
         ctx.lineTo(
           1 + step * tempInd,
-          temp_avg + temp_avg * ((temp_median - coord_val) / temp_range)
+          temp_avg + temp_avg * ((temp_median - coord_val) / temp_range),
         );
         ctx.strokeStyle = RED;
         ctx.lineWidth = 1;
@@ -396,11 +396,11 @@ class AllTogether extends Simulation {
 
         ctx.moveTo(
           1 + step * (iceInd - 1),
-          ice_avg + 3 * ice_avg * (ice_max - prev_val)
+          ice_avg + 3 * ice_avg * (ice_max - prev_val),
         );
         ctx.lineTo(
           1 + step * iceInd,
-          ice_avg + 3 * ice_avg * (ice_max - coord_val)
+          ice_avg + 3 * ice_avg * (ice_max - coord_val),
         );
         ctx.strokeStyle = BLUE;
         ctx.lineWidth = 2;
@@ -414,11 +414,11 @@ class AllTogether extends Simulation {
 
         ctx.moveTo(
           1 + step * (iceInd - 1),
-          ice_avg + 3 * ice_avg * (ice_max - prev_val)
+          ice_avg + 3 * ice_avg * (ice_max - prev_val),
         );
         ctx.lineTo(
           1 + step * iceInd,
-          ice_avg + 3 * ice_avg * (ice_max - coord_val)
+          ice_avg + 3 * ice_avg * (ice_max - coord_val),
         );
         ctx.strokeStyle = BLUE;
         ctx.lineWidth = 1;
@@ -433,11 +433,11 @@ class AllTogether extends Simulation {
 
         ctx.moveTo(
           1 + step * (co2Ind - 1),
-          co2_avg - (co2_avg * (prev_val - co2_median)) / co2_range
+          co2_avg - (co2_avg * (prev_val - co2_median)) / co2_range,
         );
         ctx.lineTo(
           1 + step * co2Ind,
-          co2_avg - (co2_avg * (coord_val - co2_median)) / co2_range
+          co2_avg - (co2_avg * (coord_val - co2_median)) / co2_range,
         );
         ctx.strokeStyle = YELLOW;
         ctx.lineWidth = 3;
@@ -490,9 +490,8 @@ class AllTogether extends Simulation {
   };
 
   /*** get all avg precip values for a specific year ***/
-	precipYearApi = (request) =>
-	{
-		//console.log(request);
+  precipYearApi = (request) => {
+    //console.log(request);
     if (cancelYearPrecip !== undefined) {
       cancelYearPrecip();
     }
@@ -501,8 +500,7 @@ class AllTogether extends Simulation {
         cancelYearPrecip = c;
       }),
     })
-		.then((res) =>
-		{
+      .then((res) => {
         this.setAvgAllCoords(res, 0);
       })
       .catch((error) => {
@@ -516,7 +514,7 @@ class AllTogether extends Simulation {
 
   /*** get all avg temp values for a specific year ***/
   tempYearApi = (request) => {
-		//console.log(request);
+    //console.log(request);
     if (cancelYearTemp !== undefined) {
       cancelYearIce();
     }
@@ -539,7 +537,7 @@ class AllTogether extends Simulation {
 
   /*** get all avg sea ice values for a specific year ***/
   iceYearApi = (request) => {
-		//console.log(request);
+    //console.log(request);
     if (cancelYearIce !== undefined) {
       cancelYearIce();
     }
@@ -641,7 +639,7 @@ class AllTogether extends Simulation {
     if (this.state.precipAvgAllCoords.length > coord_index) {
       precip_val = this.getValByCoord(
         this.state.precipAvgAllCoords,
-        coord_index
+        coord_index,
       );
     }
     if (this.state.tempAvgAllCoords.length > coord_index) {
@@ -1019,7 +1017,7 @@ class AllTogether extends Simulation {
     index,
     data1,
     data2,
-    data3
+    data3,
   ) => {
     const synth0 = this.getSynth(0);
     const synth1 = this.getSynth(1);
@@ -1101,7 +1099,19 @@ class AllTogether extends Simulation {
   };
 
   /*** runs on page close ***/
-  componentWillUnmount = () => {
+  componentWillUnmount = () =>
+  {
+    try {
+      // stop scheduled events + reset timeline
+      Tone.Transport.stop();
+      Tone.Transport.cancel(0);
+
+      // stop any playing sources you created, if you have references
+      // (see Fix 2 below)
+    } catch (e) {
+      // don't crash unmount
+      console.warn("Tone cleanup failed", e);
+    }
     PubSub.unsubscribe(this.state.token);
     if (isBrowser) {
       window.removeEventListener("resize", this.updateDimensions);
@@ -1130,7 +1140,7 @@ class AllTogether extends Simulation {
     /* A bunch of variables used to calculate crosshair position */
     var fsize = 12;
     var modelSplit = Math.floor(
-      (this.state.pageBottom * this.state.MAPVERTDIV) / 2
+      (this.state.pageBottom * this.state.MAPVERTDIV) / 2,
     );
     var modelLeft =
       Math.floor(this.state.pageRight * (1 - this.state.MAPDIV)) +
@@ -1353,7 +1363,7 @@ class AllTogether extends Simulation {
       if (this.state.precipAvgAllCoords.length > coord_index) {
         precip_val = this.getValByCoord(
           this.state.precipAvgAllCoords,
-          coord_index
+          coord_index,
         );
       }
       if (this.state.tempAvgAllCoords.length > coord_index) {
@@ -1808,8 +1818,8 @@ export default function AllTogetherWrapper(props) {
   const { navigation, route } = useNavigationShim();
 
   return (
-  
     <div style={{ minHeight: "100vh", backgroundColor: "white" }}>
       <AllTogether {...props} navigation={navigation} route={route} />
-    </div>);
+    </div>
+  );
 }
