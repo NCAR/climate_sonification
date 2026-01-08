@@ -1,6 +1,6 @@
 import { Image } from "react-native";
-import * as React from "react";
-import { useNavigation } from "@react-navigation/native";
+import React from "react";
+import { useNavigationShim } from "../routing/useNavigationShim.js";
 import Axios from "axios";
 import PubSub from "pubsub-js";
 import { isBrowser } from "react-device-detect";
@@ -1805,7 +1805,11 @@ class AllTogether extends Simulation {
 
 /*** class wrapper for naviagion functionality ***/
 export default function AllTogetherWrapper(props) {
-  const navigation = useNavigation();
+  const { navigation, route } = useNavigationShim();
 
-  return <AllTogether {...props} navigation={navigation} />;
+  return (
+  
+    <div style={{ minHeight: "100vh", backgroundColor: "white" }}>
+      <AllTogether {...props} navigation={navigation} route={route} />
+    </div>);
 }

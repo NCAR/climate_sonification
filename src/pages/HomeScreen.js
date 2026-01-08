@@ -1,48 +1,44 @@
-import * as React from 'react';
-import { useNavigation } from '@react-navigation/native';
-import { Page } from './Page.js';
-import { isBrowser, isMobile } from 'react-device-detect';
-import { eachAloneButton, allTogetherButton, qrImg } from './../const/url.js';
-import './HomeScreen.css';
+import React from "react";
+import { useNavigationShim } from "../routing/useNavigationShim";
+import { Page } from "./Page.js";
+import { isBrowser, isMobile } from "react-device-detect";
+import { eachAloneButton, allTogetherButton, qrImg } from "./../const/url.js";
+import "./HomeScreen.css";
 
-function redirect(){
-	if(isMobile){
-		window.location.href="https://news.ucar.edu/123108/40-earths-ncars-large-ensemble-reveals-staggering-climate-variability";
-	}
-};
+function redirect() {
+  if (isMobile) {
+    window.location.href =
+      "https://news.ucar.edu/123108/40-earths-ncars-large-ensemble-reveals-staggering-climate-variability";
+  }
+}
 
 class HomeScreen extends Page {
-
-    /*** runs on page open ***/
-    componentDidMount = () => {
-    	if(isBrowser){
-    		window.addEventListener('resize', this.updateDimensions);
-    	}
-    	window.addEventListener('orientationchange', this.rotateDimensions);
-    	this.setState({
-    		pageBottomMax: window.innerHeight,
-    		pageRightMax: window.innerWidth
-    	});
-    	this.updateDimensions();
+  /*** runs on page open ***/
+  componentDidMount = () => {
+    if (isBrowser) {
+      window.addEventListener("resize", this.updateDimensions);
     }
+    window.addEventListener("orientationchange", this.rotateDimensions);
+    this.setState({
+      pageBottomMax: window.innerHeight,
+      pageRightMax: window.innerWidth,
+    });
+    this.updateDimensions();
+  };
 
-    /*** runs on page close ***/
-    componentWillUnmount = () => {
-    	if(isBrowser){
-    		window.removeEventListener('resize', this.updateDimensions);
-    	}
-    	window.removeEventListener('orientationchange', this.rotateDimensions);
+  /*** runs on page close ***/
+  componentWillUnmount = () => {
+    if (isBrowser) {
+      window.removeEventListener("resize", this.updateDimensions);
     }
+    window.removeEventListener("orientationchange", this.rotateDimensions);
+  };
 
-    /*** return html ***/
-	render()
-	{
+  /*** return html ***/
+  render() {
+    const { navigation } = this.props;
 
-		const { navigation } = this.props;
-
-
-
-		return (
+    return (
       <div className={"hp-container"}>
         {/* Row for title text */}
         <h1 className={"hp-title-container"}>Sounding Climate</h1>
@@ -95,13 +91,11 @@ class HomeScreen extends Page {
         }
       </div>
     );
-    }
+  }
 }
 
+export default function HomeScreenWrapper(props) {
+  const { navigation, route } = useNavigationShim();
 
-
-export default function HomeScreenWrapper(props){
-    const navigation = useNavigation();
-
-    return <HomeScreen {...props} navigation={navigation} />;
+  return <HomeScreen {...props} navigation={navigation} route={route} />;
 }
