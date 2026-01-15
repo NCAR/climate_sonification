@@ -883,7 +883,6 @@ export class Simulation extends Page {
 
   /*** Another increment method to work with tone ***/
   incrementIndex = () => {
-    this.setupGraph();
     const { index } = this.state;
     if (index < 180) {
       this.setState({ index: index + 1 });
@@ -949,10 +948,9 @@ export class Simulation extends Page {
   handleYear = (event) => {
     if (this.state.play === 0) {
       this.setState({
-        index: parseInt(event.target.value),
+        index: parseInt(event.target.value, 10),
         useArray: 3,
       });
-      this.setupGraph();
     }
   };
 

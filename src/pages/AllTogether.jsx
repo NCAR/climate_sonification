@@ -70,6 +70,22 @@ class AllTogether extends Simulation {
   coordTemp1Controller = null;
   coordIce1Controller = null;
 
+  _isYearSeriesReady = (arr) => {
+    // Your "all years for a coord" data is expected to be an array
+    // with one object at index 0 (not [0], not empty)
+    return (
+      Array.isArray(arr) &&
+      arr.length > 0 &&
+      arr[0] &&
+      typeof arr[0] === "object"
+    );
+  };
+
+  _isCo2Ready = () => {
+    const item = this.state.co2data?.[this.state.index];
+    return item && typeof item === "object" && Number.isFinite(item.co2_val);
+  };
+
   /* Test precip model key */
   testPrecipMusic = (e) => {
     if (
@@ -303,159 +319,220 @@ class AllTogether extends Simulation {
     this.doYearHits(this.state.index + 1920);
     this.setAllegro();
   };
+  componentDidUpdate(prevProps, prevState) {
+    // Only redraw when inputs to the graph change
+    const graphInputsChanged =
+      prevState.index !== this.state.index ||
+      prevState.precipAvg !== this.state.precipAvg ||
+      prevState.precip1 !== this.state.precip1 ||
+      prevState.tempAvg !== this.state.tempAvg ||
+      prevState.temp1 !== this.state.temp1 ||
+      prevState.iceAvg !== this.state.iceAvg ||
+      prevState.ice1 !== this.state.ice1 ||
+      prevState.co2data !== this.state.co2data ||
+      prevState.pageBottom !== this.state.pageBottom ||
+      prevState.pageRight !== this.state.pageRight ||
+      prevState.GRAPHVERTDIV !== this.state.GRAPHVERTDIV ||
+      prevState.MAPDIV !== this.state.MAPDIV;
+
+    if (graphInputsChanged) {
+      this.setupGraph();
+      this.updateGraph();
+    }
+  }
 
   /*** Write to graph ***/
   updateGraph() {
-    if (this.state.index > 0 && this.state.index <= 180) {
-      const ctx = this.graphRef.current.getContext("2d");
+    // canvas must exist
+    if (!this.graphRef?.current) return;
 
-      var { step, avg, co2_median, co2_range, co2_avg } = this.getGraphDims();
+    // must have a valid index range
+    if (!(this.state.index >= 0 && this.state.index <= 180)) return;
 
-      var { precip_median, precip_range } = this.getPrecipGraphVars(
-        this.state.precipAvg,
-      );
+    // data guards: CO2 and main year-series must be ready
+    if (!this._isCo2Ready()) return;
 
-      var prev_val = 0;
-      var coord_val = 0;
-
-      //precip
-      ctx.beginPath();
-      for (var precipInd = 0; precipInd <= this.state.index; precipInd++) {
-        prev_val = this.getValByIndex(this.state.precipAvg, precipInd - 1);
-        coord_val = this.getValByIndex(this.state.precipAvg, precipInd);
-
-        ctx.moveTo(
-          1 + step * (precipInd - 1),
-          avg + avg * ((precip_median - prev_val) / precip_range),
-        );
-        ctx.lineTo(
-          1 + step * precipInd,
-          avg + avg * ((precip_median - coord_val) / precip_range),
-        );
-        ctx.strokeStyle = GREEN;
-        ctx.lineWidth = 2;
-      }
-      ctx.stroke();
-
-      ctx.beginPath();
-      for (precipInd = 0; precipInd <= this.state.index; precipInd++) {
-        prev_val = this.getValByIndex(this.state.precip1, precipInd - 1);
-        coord_val = this.getValByIndex(this.state.precip1, precipInd);
-
-        ctx.moveTo(
-          1 + step * (precipInd - 1),
-          avg + avg * ((precip_median - prev_val) / precip_range),
-        );
-        ctx.lineTo(
-          1 + step * precipInd,
-          avg + avg * ((precip_median - coord_val) / precip_range),
-        );
-        ctx.strokeStyle = GREEN;
-        ctx.lineWidth = 1;
-      }
-      ctx.stroke();
-
-      var { temp_median, temp_range, temp_avg } = this.getTempGraphVars(
-        this.state.tempAvg,
-        avg,
-      );
-
-      //temp
-      ctx.beginPath();
-      for (var tempInd = 0; tempInd <= this.state.index; tempInd++) {
-        prev_val = this.getValByIndex(this.state.tempAvg, tempInd - 1);
-        coord_val = this.getValByIndex(this.state.tempAvg, tempInd);
-
-        ctx.moveTo(
-          1 + step * (tempInd - 1),
-          temp_avg + temp_avg * ((temp_median - prev_val) / temp_range),
-        );
-        ctx.lineTo(
-          1 + step * tempInd,
-          temp_avg + temp_avg * ((temp_median - coord_val) / temp_range),
-        );
-        ctx.strokeStyle = RED;
-        ctx.lineWidth = 2;
-      }
-      ctx.stroke();
-
-      ctx.beginPath();
-      for (tempInd = 0; tempInd <= this.state.index; tempInd++) {
-        prev_val = this.getValByIndex(this.state.temp1, tempInd - 1);
-        coord_val = this.getValByIndex(this.state.temp1, tempInd);
-
-        ctx.moveTo(
-          1 + step * (tempInd - 1),
-          temp_avg + temp_avg * ((temp_median - prev_val) / temp_range),
-        );
-        ctx.lineTo(
-          1 + step * tempInd,
-          temp_avg + temp_avg * ((temp_median - coord_val) / temp_range),
-        );
-        ctx.strokeStyle = RED;
-        ctx.lineWidth = 1;
-      }
-      ctx.stroke();
-
-      var ice_max = 1;
-      var ice_avg = Math.floor(avg * 0.5);
-
-      //sea ice
-      ctx.beginPath();
-      for (var iceInd = 0; iceInd <= this.state.index; iceInd++) {
-        prev_val = this.getValByIndex(this.state.iceAvg, iceInd - 1);
-        coord_val = this.getValByIndex(this.state.iceAvg, iceInd);
-
-        ctx.moveTo(
-          1 + step * (iceInd - 1),
-          ice_avg + 3 * ice_avg * (ice_max - prev_val),
-        );
-        ctx.lineTo(
-          1 + step * iceInd,
-          ice_avg + 3 * ice_avg * (ice_max - coord_val),
-        );
-        ctx.strokeStyle = BLUE;
-        ctx.lineWidth = 2;
-      }
-      ctx.stroke();
-
-      ctx.beginPath();
-      for (iceInd = 0; iceInd <= this.state.index; iceInd++) {
-        prev_val = this.getValByIndex(this.state.ice1, iceInd - 1);
-        coord_val = this.getValByIndex(this.state.ice1, iceInd);
-
-        ctx.moveTo(
-          1 + step * (iceInd - 1),
-          ice_avg + 3 * ice_avg * (ice_max - prev_val),
-        );
-        ctx.lineTo(
-          1 + step * iceInd,
-          ice_avg + 3 * ice_avg * (ice_max - coord_val),
-        );
-        ctx.strokeStyle = BLUE;
-        ctx.lineWidth = 1;
-      }
-      ctx.stroke();
-
-      //co2
-      ctx.beginPath();
-      for (var co2Ind = 1; co2Ind <= this.state.index; co2Ind++) {
-        prev_val = this.state.co2data[co2Ind - 1].co2_val;
-        coord_val = this.state.co2data[co2Ind].co2_val;
-
-        ctx.moveTo(
-          1 + step * (co2Ind - 1),
-          co2_avg - (co2_avg * (prev_val - co2_median)) / co2_range,
-        );
-        ctx.lineTo(
-          1 + step * co2Ind,
-          co2_avg - (co2_avg * (coord_val - co2_median)) / co2_range,
-        );
-        ctx.strokeStyle = YELLOW;
-        ctx.lineWidth = 3;
-      }
-      ctx.stroke();
+    // For AllTogether, you draw 6 series across years
+    if (
+      !this._isYearSeriesReady(this.state.precipAvg) ||
+      !this._isYearSeriesReady(this.state.precip1) ||
+      !this._isYearSeriesReady(this.state.tempAvg) ||
+      !this._isYearSeriesReady(this.state.temp1) ||
+      !this._isYearSeriesReady(this.state.iceAvg) ||
+      !this._isYearSeriesReady(this.state.ice1)
+    ) {
+      return;
     }
+
+    const ctx = this.graphRef.current.getContext("2d");
+    if (!ctx) return;
+
+    const { step, avg, co2_median, co2_range, co2_avg } = this.getGraphDims();
+
+    const { precip_median, precip_range } = this.getPrecipGraphVars(
+      this.state.precipAvg,
+    );
+    const { temp_median, temp_range, temp_avg } = this.getTempGraphVars(
+      this.state.tempAvg,
+      avg,
+    );
+
+    let prev_val = 0;
+    let coord_val = 0;
+
+    // ===== precip avg (thick) =====
+    ctx.beginPath();
+    for (let precipInd = 0; precipInd <= this.state.index; precipInd++) {
+      prev_val =
+        precipInd === 0
+          ? this.getValByIndex(this.state.precipAvg, 0)
+          : this.getValByIndex(this.state.precipAvg, precipInd - 1);
+      coord_val = this.getValByIndex(this.state.precipAvg, precipInd);
+
+      ctx.moveTo(
+        1 + step * (precipInd - 1),
+        avg + avg * ((precip_median - prev_val) / precip_range),
+      );
+      ctx.lineTo(
+        1 + step * precipInd,
+        avg + avg * ((precip_median - coord_val) / precip_range),
+      );
+      ctx.strokeStyle = GREEN;
+      ctx.lineWidth = 2;
+    }
+    ctx.stroke();
+
+    // ===== precip 001 (thin) =====
+    ctx.beginPath();
+    for (let precipInd = 0; precipInd <= this.state.index; precipInd++) {
+      prev_val =
+        precipInd === 0
+          ? this.getValByIndex(this.state.precip1, 0)
+          : this.getValByIndex(this.state.precip1, precipInd - 1);
+      coord_val = this.getValByIndex(this.state.precip1, precipInd);
+
+      ctx.moveTo(
+        1 + step * (precipInd - 1),
+        avg + avg * ((precip_median - prev_val) / precip_range),
+      );
+      ctx.lineTo(
+        1 + step * precipInd,
+        avg + avg * ((precip_median - coord_val) / precip_range),
+      );
+      ctx.strokeStyle = GREEN;
+      ctx.lineWidth = 1;
+    }
+    ctx.stroke();
+
+    // ===== temp avg (thick) =====
+    ctx.beginPath();
+    for (let tempInd = 0; tempInd <= this.state.index; tempInd++) {
+      prev_val =
+        tempInd === 0
+          ? this.getValByIndex(this.state.tempAvg, 0)
+          : this.getValByIndex(this.state.tempAvg, tempInd - 1);
+      coord_val = this.getValByIndex(this.state.tempAvg, tempInd);
+
+      ctx.moveTo(
+        1 + step * (tempInd - 1),
+        temp_avg + temp_avg * ((temp_median - prev_val) / temp_range),
+      );
+      ctx.lineTo(
+        1 + step * tempInd,
+        temp_avg + temp_avg * ((temp_median - coord_val) / temp_range),
+      );
+      ctx.strokeStyle = RED;
+      ctx.lineWidth = 2;
+    }
+    ctx.stroke();
+
+    // ===== temp 001 (thin) =====
+    ctx.beginPath();
+    for (let tempInd = 0; tempInd <= this.state.index; tempInd++) {
+      prev_val =
+        tempInd === 0
+          ? this.getValByIndex(this.state.temp1, 0)
+          : this.getValByIndex(this.state.temp1, tempInd - 1);
+      coord_val = this.getValByIndex(this.state.temp1, tempInd);
+
+      ctx.moveTo(
+        1 + step * (tempInd - 1),
+        temp_avg + temp_avg * ((temp_median - prev_val) / temp_range),
+      );
+      ctx.lineTo(
+        1 + step * tempInd,
+        temp_avg + temp_avg * ((temp_median - coord_val) / temp_range),
+      );
+      ctx.strokeStyle = RED;
+      ctx.lineWidth = 1;
+    }
+    ctx.stroke();
+
+    // ===== sea ice =====
+    const ice_max = 1;
+    const ice_avg = Math.floor(avg * 0.5);
+
+    ctx.beginPath();
+    for (let iceInd = 0; iceInd <= this.state.index; iceInd++) {
+      prev_val =
+        iceInd === 0
+          ? this.getValByIndex(this.state.iceAvg, 0)
+          : this.getValByIndex(this.state.iceAvg, iceInd - 1);
+      coord_val = this.getValByIndex(this.state.iceAvg, iceInd);
+
+      ctx.moveTo(
+        1 + step * (iceInd - 1),
+        ice_avg + 3 * ice_avg * (ice_max - prev_val),
+      );
+      ctx.lineTo(
+        1 + step * iceInd,
+        ice_avg + 3 * ice_avg * (ice_max - coord_val),
+      );
+      ctx.strokeStyle = BLUE;
+      ctx.lineWidth = 2;
+    }
+    ctx.stroke();
+
+    ctx.beginPath();
+    for (let iceInd = 0; iceInd <= this.state.index; iceInd++) {
+      prev_val =
+        iceInd === 0
+          ? this.getValByIndex(this.state.ice1, 0)
+          : this.getValByIndex(this.state.ice1, iceInd - 1);
+      coord_val = this.getValByIndex(this.state.ice1, iceInd);
+
+      ctx.moveTo(
+        1 + step * (iceInd - 1),
+        ice_avg + 3 * ice_avg * (ice_max - prev_val),
+      );
+      ctx.lineTo(
+        1 + step * iceInd,
+        ice_avg + 3 * ice_avg * (ice_max - coord_val),
+      );
+      ctx.strokeStyle = BLUE;
+      ctx.lineWidth = 1;
+    }
+    ctx.stroke();
+
+    // ===== CO2 =====
+    ctx.beginPath();
+    for (let co2Ind = 1; co2Ind <= this.state.index; co2Ind++) {
+      const prev = this.state.co2data[co2Ind - 1]?.co2_val;
+      const curr = this.state.co2data[co2Ind]?.co2_val;
+      if (!Number.isFinite(prev) || !Number.isFinite(curr)) continue;
+
+      ctx.moveTo(
+        1 + step * (co2Ind - 1),
+        co2_avg - (co2_avg * (prev - co2_median)) / co2_range,
+      );
+      ctx.lineTo(
+        1 + step * co2Ind,
+        co2_avg - (co2_avg * (curr - co2_median)) / co2_range,
+      );
+      ctx.strokeStyle = YELLOW;
+      ctx.lineWidth = 3;
+    }
+    ctx.stroke();
   }
 
   /*** called when the window is resized
@@ -644,7 +721,7 @@ class AllTogether extends Simulation {
     );
 
     Axios.get(request, { signal: this.coordPrecipAvgController.signal })
-      .then((res) => this.setAvgAllCoords(res, 0))
+      .then((res) => this.setAvgAllYears(res, 0))
       .catch((error) => {
         if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
           return;
@@ -659,7 +736,7 @@ class AllTogether extends Simulation {
     );
 
     Axios.get(request, { signal: this.coordPrecip1Controller.signal })
-      .then((res) => this.setAvgAllCoords(res, 0))
+      .then((res) => this.setAvgAllYears(res, 3))
       .catch((error) => {
         if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
           return;
@@ -674,7 +751,7 @@ class AllTogether extends Simulation {
     );
 
     Axios.get(request, { signal: this.coordTempAvgController.signal })
-      .then((res) => this.setAvgAllCoords(res, 0))
+      .then((res) => this.setAvgAllYears(res, 1))
       .catch((error) => {
         if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
           return;
@@ -687,7 +764,7 @@ class AllTogether extends Simulation {
     this.coordTemp1Controller = this._abortAndRenew(this.coordTemp1Controller);
 
     Axios.get(request, { signal: this.coordTemp1Controller.signal })
-      .then((res) => this.setAvgAllCoords(res, 0))
+      .then((res) => this.setAvgAllYears(res, 4))
       .catch((error) => {
         if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
           return;
@@ -702,7 +779,7 @@ class AllTogether extends Simulation {
     );
 
     Axios.get(request, { signal: this.coordIceAvgController.signal })
-      .then((res) => this.setAvgAllCoords(res, 0))
+      .then((res) => this.setAvgAllYears(res, 2))
       .catch((error) => {
         if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
           return;
@@ -715,7 +792,7 @@ class AllTogether extends Simulation {
     this.coordIce1Controller = this._abortAndRenew(this.coordIce1Controller);
 
     Axios.get(request, { signal: this.coordIce1Controller.signal })
-      .then((res) => this.setAvgAllCoords(res, 0))
+      .then((res) => this.setAvgAllYears(res, 5))
       .catch((error) => {
         if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
           return;
@@ -724,42 +801,52 @@ class AllTogether extends Simulation {
   };
 
   /*** save data used for music ***/
+  /*** save data used for music ***/
   setAvgAllYears = (res, arrayNum) => {
     const data = res.data.data;
-    var curwait = this.state.waiting;
-    ////console.log('curwait ' + curwait);
+
+    // Choose which state key to update and which notes setter to call
+    let stateKey = null;
+    let notesSetter = null;
 
     if (arrayNum === 0) {
-      ////console.log('in here ' + arrayNum);
-      this.setState({ precipAvg: [...data] });
-      this.setPrecipNotes(data);
+      stateKey = "precipAvg";
+      notesSetter = this.setPrecipNotes;
     } else if (arrayNum === 1) {
-      ////console.log('in here ' + arrayNum);
-      this.setState({ tempAvg: [...data] });
-      this.setTempNotes(data);
+      stateKey = "tempAvg";
+      notesSetter = this.setTempNotes;
     } else if (arrayNum === 2) {
-      ////console.log('in here ' + arrayNum);
-      this.setState({ iceAvg: [...data] });
-      this.setIceNotes(data);
+      stateKey = "iceAvg";
+      notesSetter = this.setIceNotes;
     } else if (arrayNum === 3) {
-      ////console.log('in here ' + arrayNum);
-      this.setState({ precip1: [...data] });
-      this.setPrecipNotes1(data);
+      stateKey = "precip1";
+      notesSetter = this.setPrecipNotes1;
     } else if (arrayNum === 4) {
-      ////console.log('in here ' + arrayNum);
-      this.setState({ temp1: [...data] });
-      this.setTempNotes1(data);
+      stateKey = "temp1";
+      notesSetter = this.setTempNotes1;
     } else if (arrayNum === 5) {
-      ////console.log('in here ' + arrayNum);
-      this.setState({ ice1: [...data] });
-      this.setIceNotes1(data);
+      stateKey = "ice1";
+      notesSetter = this.setIceNotes1;
+    } else {
+      console.warn("setAvgAllYears called with unexpected arrayNum:", arrayNum);
+      return;
     }
 
-    //this.setState({ waiting: curwait - 1 });
+    // 1) Update the dataset + decrement waiting safely
+    this.setState(
+      (prev) => ({
+        [stateKey]: Array.isArray(data) ? [...data] : [0],
+        waiting: Math.max(0, (prev.waiting ?? 0) - 1),
+      }),
+      () => {
+        // 2) Build notes from the same payload (synchronous)
+        notesSetter(data);
 
-    this.setupGraph();
-    this.updateGraph();
-    ////console.log(arrayNum, data);
+        // 3) Redraw graph after state has been updated
+        //this.setupGraph();
+        //this.updateGraph();
+      },
+    );
   };
 
   /*** query db for all years of a specific coord ***/
@@ -1041,7 +1128,7 @@ class AllTogether extends Simulation {
     this.coordPrecip1Controller?.abort();
     this.coordTemp1Controller?.abort();
     this.coordIce1Controller?.abort();
-    
+
     PubSub.unsubscribe(this.state.token);
     if (isBrowser) {
       window.removeEventListener("resize", this.updateDimensions);
@@ -1271,7 +1358,10 @@ class AllTogether extends Simulation {
 
     var { dbX, dbY } = this.getDBCoords();
 
-    var co2val = Math.round(this.state.co2data[this.state.index].co2_val);
+    const co2_obj = this.state.co2data?.[this.state.index];
+    const co2val = Number.isFinite(co2_obj?.co2_val)
+      ? Math.round(co2_obj.co2_val)
+      : "--";
 
     /*** setup model URL ***/
     var urlAdd = urlPre.concat(this.state.modelStr);
@@ -1305,14 +1395,21 @@ class AllTogether extends Simulation {
     }
 
     var temp_pre = "Temperature: +";
-    if (temp_val < 0) {
-      temp_pre = "Temperature: ";
-    }
+    if (Number.isFinite(temp_val) && temp_val >= 0) temp_pre = "Temperature: +";
 
-    ice_val *= 100;
+    /*ice_val *= 100;
     ice_val = Math.round(ice_val * 100) / 100;
     temp_val = Math.round(temp_val * 100) / 100;
-    precip_val = Math.round(precip_val * 100) / 100;
+    precip_val = Math.round(precip_val * 100) / 100;*/
+    const precipNum = Number.isFinite(precip_val)
+      ? Math.round(precip_val * 100) / 100
+      : "--";
+    const tempNum = Number.isFinite(temp_val)
+      ? Math.round(temp_val * 100) / 100
+      : "--";
+    const icePct = Number.isFinite(ice_val)
+      ? Math.round(ice_val * 100 * 100) / 100
+      : "--"; // ice fraction -> %
 
     const {
       pageDiv,
@@ -1355,7 +1452,7 @@ class AllTogether extends Simulation {
     const { largeControlBlockStyle, graphHeight, graphWidth } =
       this.getTogetherStyles(modelWidth, controlHeight, controlWidth);
 
-    this.updateGraph();
+    //this.updateGraph();
 
     /*** Return the page ***/
 
@@ -1607,17 +1704,17 @@ class AllTogether extends Simulation {
             <div style={graphBufferStyle}>
               <div style={dataThirdStyle}>
                 <p style={smallLabelTextStyle}>
-                  Precipitation: {precip_val} % of Annual Avg
+                  Precipitation: {precipNum} % of Annual Avg
                 </p>
               </div>
               <div style={dataThirdStyle}>
                 <p style={smallLabelTextStyle}>
                   {temp_pre}
-                  {temp_val} Celsius (vs 1920-1950)
+                  {tempNum} Celsius (vs 1920-1950)
                 </p>
               </div>
               <div style={dataThirdStyle}>
-                <p style={smallLabelTextStyle}>Sea Ice Fraction: {ice_val} %</p>
+                <p style={smallLabelTextStyle}>Sea Ice Fraction: {icePct} %</p>
               </div>
             </div>
 

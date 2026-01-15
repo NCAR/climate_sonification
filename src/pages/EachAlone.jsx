@@ -65,6 +65,27 @@ class EachAlone extends Simulation {
   coordController1Avg = null;
   coordController2Avg = null;
 
+  // Clamp waiting so it never goes negative
+  _decWaiting = () => {
+    this.setState((prev) => ({
+      waiting: Math.max(0, (prev.waiting || 0) - 1),
+    }));
+  };
+
+  // Optional: set waiting safely (helps avoid undefined)
+  _setWaiting = (n) => {
+    this.setState({ waiting: Math.max(0, n | 0) });
+  };
+
+  _hasCo2AtIndex = (i) => {
+    const row = this.state.co2data?.[i];
+    return row && typeof row === "object" && typeof row.co2_val === "number";
+  };
+
+  _getCo2Val = (i) => {
+    return this._hasCo2AtIndex(i) ? this.state.co2data[i].co2_val : null;
+  };
+
   /*** Run this when stop is pressed or when index === 180 ***/
   stopMusic = (terminate) => {
     //console.log('stopping');
@@ -330,8 +351,15 @@ class EachAlone extends Simulation {
             this.state.index,
             this.state.coordData,
           );
-          var co2_val = this.state.co2data[this.state.index].co2_val;
-          this.playNoteByVal(3, co2_val, this.state.index, this.state.co2data);
+          const co2_val = this._getCo2Val(this.state.index);
+          if (co2_val != null) {
+            this.playNoteByVal(
+              3,
+              co2_val,
+              this.state.index,
+              this.state.co2data,
+            );
+          }
         }
       },
     );
@@ -658,10 +686,9 @@ class EachAlone extends Simulation {
     Axios.get(request, { signal: this.coordControllerAvg.signal })
       .then((res) => {
         const coord_data = res.data.data;
-        const currwait = this.state.waiting;
-        this.setState({ coordData: [...coord_data], waiting: currwait - 1 });
-        this.setupGraph();
-        this.updateGraph();
+        this.setState({ coordData: [...coord_data] }, this._decWaiting);
+        //this.setupGraph();
+        //this.updateGraph();
 
         if (this.state.state === 0) this.setPrecipNotes(coord_data);
         else if (this.state.state === 1) this.setTempNotes(coord_data);
@@ -681,14 +708,13 @@ class EachAlone extends Simulation {
     Axios.get(request, { signal: this.coordController1Avg.signal })
       .then((res) => {
         const coord_data = res.data.data;
-        const currwait = this.state.waiting;
-        this.setState({ coordData: [...coord_data], waiting: currwait - 1 });
-        this.setupGraph();
-        this.updateGraph();
+        this.setState({ coordData1: [...coord_data] }, this._decWaiting);
+        //this.setupGraph();
+        //this.updateGraph();
 
-        if (this.state.state === 0) this.setPrecipNotes(coord_data);
-        else if (this.state.state === 1) this.setTempNotes(coord_data);
-        else this.setIceNotes(coord_data);
+        if (this.state.state === 0) this.setPrecipNotes1(coord_data);
+        else if (this.state.state === 1) this.setTempNotes1(coord_data);
+        else this.setIceNotes1(coord_data);
       })
       .catch((error) => {
         if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
@@ -704,14 +730,13 @@ class EachAlone extends Simulation {
     Axios.get(request, { signal: this.coordController2Avg.signal })
       .then((res) => {
         const coord_data = res.data.data;
-        const currwait = this.state.waiting;
-        this.setState({ coordData: [...coord_data], waiting: currwait - 1 });
-        this.setupGraph();
-        this.updateGraph();
+        this.setState({ coordData2: [...coord_data] }, this._decWaiting);
+        // this.setupGraph();
+        // this.updateGraph();
 
-        if (this.state.state === 0) this.setPrecipNotes(coord_data);
-        else if (this.state.state === 1) this.setTempNotes(coord_data);
-        else this.setIceNotes(coord_data);
+        if (this.state.state === 0) this.setPrecipNotes2(coord_data);
+        else if (this.state.state === 1) this.setTempNotes2(coord_data);
+        else this.setIceNotes2(coord_data);
       })
       .catch((error) => {
         if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
@@ -747,35 +772,29 @@ class EachAlone extends Simulation {
         intermediate2 = dbUrl.concat("seaice002/coord/");
       }
 
-      this.setState({ waiting: 3 }, function () {
-        ////console.log(this.state.waiting);
-        var request = intermediate
-          .concat(dbX.toString(10))
-          .concat(",")
-          .concat(dbY.toString(10))
-          .concat(".txt");
-        ////console.log(request);
-        this.coordApi(request);
-        this.setState({ waiting: 2 }, function () {
-          var request1 = intermediate1
-            .concat(dbX.toString(10))
-            .concat(",")
-            .concat(dbY.toString(10))
-            .concat(".txt");
-          ////console.log(request);
-          this.coordApi1(request1);
+      // set waiting once for the 3 in-flight requests
+      this._setWaiting(3);
 
-          this.setState({ waiting: 1 }, function () {
-            var request2 = intermediate2
-              .concat(dbX.toString(10))
-              .concat(",")
-              .concat(dbY.toString(10))
-              .concat(".txt");
-            ////console.log(request);
-            this.coordApi2(request2);
-          });
-        });
-      });
+      const request = intermediate
+        .concat(dbX.toString(10))
+        .concat(",")
+        .concat(dbY.toString(10))
+        .concat(".txt");
+      this.coordApi(request);
+
+      const request1 = intermediate1
+        .concat(dbX.toString(10))
+        .concat(",")
+        .concat(dbY.toString(10))
+        .concat(".txt");
+      this.coordApi1(request1);
+
+      const request2 = intermediate2
+        .concat(dbX.toString(10))
+        .concat(",")
+        .concat(dbY.toString(10))
+        .concat(".txt");
+      this.coordApi2(request2);
     }
   }
 
@@ -998,9 +1017,11 @@ class EachAlone extends Simulation {
     if (this.state.yearData.length >= coord_index) {
       coord_val = this.getValByCoord(this.state.yearData, coord_index);
     }
-    var co2_val = this.state.co2data[this.state.index].co2_val;
+    const co2_val = this._getCo2Val(this.state.index);
     this.triggerNoteByVal(this.state.state, coord_val);
-    this.triggerNoteByVal(3, co2_val);
+    if (co2_val != null) {
+      this.triggerNoteByVal(3, co2_val);
+    }
     this.setupGraph();
   };
 
@@ -1017,19 +1038,46 @@ class EachAlone extends Simulation {
       // don't crash unmount
       console.warn("Tone cleanup failed", e);
     }
-    
+
     // Abort any inflight Axios
     this.yearController?.abort();
     this.coordControllerAvg?.abort();
-    this.coordController1?.abort();
-    this.coordController2?.abort();
+    this.coordController1Avg?.abort();
+    this.coordController2Avg?.abort();
 
     PubSub.unsubscribe(this.state.token);
     if (isBrowser) {
       window.removeEventListener("resize", this.updateDimensions);
     }
     window.removeEventListener("orientationchange", this.rotateDimensions);
-  };;
+  };
+
+  componentDidUpdate(prevProps, prevState) {
+    // If the canvas ref isn't ready, bail safely.
+    if (!this.graphRef?.current) return;
+
+    // Any change that should redraw the graph.
+    const shouldRedraw =
+      prevState.index !== this.state.index ||
+      prevState.state !== this.state.state ||
+      prevState.useArray !== this.state.useArray ||
+      prevState.pageBottom !== this.state.pageBottom ||
+      prevState.pageRight !== this.state.pageRight ||
+      prevState.GRAPHVERTDIV !== this.state.GRAPHVERTDIV ||
+      prevState.MAPDIV !== this.state.MAPDIV ||
+      prevState.coordData !== this.state.coordData ||
+      prevState.coordData1 !== this.state.coordData1 ||
+      prevState.coordData2 !== this.state.coordData2 ||
+      prevState.yearData !== this.state.yearData ||
+      prevState.co2data !== this.state.co2data;
+
+    if (!shouldRedraw) return;
+
+    // Clear/border then draw the lines.
+    // setupGraph() already uses the current canvas size derived from state.
+    this.setupGraph();
+    this.updateGraph();
+  }
 
   /*** Picks where to put crosshairs ***/
   getLocations = () => {
@@ -1237,7 +1285,8 @@ class EachAlone extends Simulation {
 
     var { dbX, dbY } = this.getDBCoords();
 
-    var co2val = Math.round(this.state.co2data[this.state.index].co2_val);
+    const co2Raw = this._getCo2Val(this.state.index);
+    var co2val = co2Raw == null ? "--" : Math.round(co2Raw);
 
     /*** setup model URL ***/
     var urlAdd = urlPre.concat(this.state.modelStr);
@@ -1335,7 +1384,7 @@ class EachAlone extends Simulation {
       textAlign: dataBlockStyle.textAlign,
     };
 
-    this.updateGraph();
+    //this.updateGraph();
 
     /*** Return the page ***/
     return (
