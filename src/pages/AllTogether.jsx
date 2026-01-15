@@ -29,7 +29,7 @@ import {
 function isNumeric(value) {
   return /^-?\d+$/.test(value);
 }
-
+/*
 let cancelYearPrecip;
 let cancelCoordPrecip;
 let cancelCoordPrecip1;
@@ -41,6 +41,7 @@ let cancelCoordIce;
 let cancelCoordIce1;
 
 const CancelToken = Axios.CancelToken;
+*/
 
 /*** Page class ***/
 class AllTogether extends Simulation {
@@ -57,6 +58,17 @@ class AllTogether extends Simulation {
     this.state.tempAvgAllCoords = [0];
     this.state.iceAvgAllCoords = [0];
   }
+  yearPrecipController = null;
+  yearTempController = null;
+  yearIceController = null;
+
+  coordPrecipAvgController = null;
+  coordTempAvgController = null;
+  coordIceAvgController = null;
+
+  coordPrecip1Controller = null;
+  coordTemp1Controller = null;
+  coordIce1Controller = null;
 
   /* Test precip model key */
   testPrecipMusic = (e) => {
@@ -491,70 +503,40 @@ class AllTogether extends Simulation {
 
   /*** get all avg precip values for a specific year ***/
   precipYearApi = (request) => {
-    //console.log(request);
-    if (cancelYearPrecip !== undefined) {
-      cancelYearPrecip();
-    }
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelYearPrecip = c;
-      }),
-    })
-      .then((res) => {
-        this.setAvgAllCoords(res, 0);
-      })
+    this.yearPrecipController = this._abortAndRenew(this.yearPrecipController);
+
+    Axios.get(request, { signal: this.yearPrecipController.signal })
+      .then((res) => this.setAvgAllCoords(res, 0))
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('precip year request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("precipYearApi failed:", error);
       });
   };
 
   /*** get all avg temp values for a specific year ***/
   tempYearApi = (request) => {
-    //console.log(request);
-    if (cancelYearTemp !== undefined) {
-      cancelYearIce();
-    }
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelYearTemp = c;
-      }),
-    })
-      .then((res) => {
-        this.setAvgAllCoords(res, 1);
-      })
+    this.yearTempController = this._abortAndRenew(this.yearTempController);
+
+    Axios.get(request, { signal: this.yearTempController.signal })
+      .then((res) => this.setAvgAllCoords(res, 1))
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('temp year request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("tempYearApi failed:", error);
       });
   };
 
   /*** get all avg sea ice values for a specific year ***/
   iceYearApi = (request) => {
-    //console.log(request);
-    if (cancelYearIce !== undefined) {
-      cancelYearIce();
-    }
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelYearIce = c;
-      }),
-    })
-      .then((res) => {
-        this.setAvgAllCoords(res, 2);
-      })
+    this.yearIceController = this._abortAndRenew(this.yearIceController);
+
+    Axios.get(request, { signal: this.yearIceController.signal })
+      .then((res) => this.setAvgAllCoords(res, 2))
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('ice year request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("iceYearApi failed:", error);
       });
   };
 
@@ -657,151 +639,87 @@ class AllTogether extends Simulation {
 
   /*** request avg precip data ***/
   precipCoordApi = (request) => {
-    if (cancelCoordPrecip !== undefined) {
-      cancelCoordPrecip();
-    }
+    this.coordPrecipAvgController = this._abortAndRenew(
+      this.coordPrecipAvgController,
+    );
 
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoordPrecip = c;
-      }),
-    })
-      .then((res) => {
-        this.setState({ waiting: 5 }, function () {
-          this.setAvgAllYears(res, 0);
-        });
-      })
+    Axios.get(request, { signal: this.coordPrecipAvgController.signal })
+      .then((res) => this.setAvgAllCoords(res, 0))
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('precip coord request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("precipCoordApi failed:", error);
       });
   };
 
   /*** request 001 precip data ***/
   precipCoordApi1 = (request) => {
-    if (cancelCoordPrecip1 !== undefined) {
-      cancelCoordPrecip1();
-    }
+    this.coordPrecip1Controller = this._abortAndRenew(
+      this.coordPrecip1Controller,
+    );
 
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoordPrecip1 = c;
-      }),
-    })
-      .then((res) => {
-        this.setState({ waiting: 2 }, function () {
-          this.setAvgAllYears(res, 3);
-        });
-      })
+    Axios.get(request, { signal: this.coordPrecip1Controller.signal })
+      .then((res) => this.setAvgAllCoords(res, 0))
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('precip1 coord request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("precipCoordApi1 failed:", error);
       });
   };
 
   /*** request avg temp data ***/
   tempCoordApi = (request) => {
-    if (cancelCoordTemp !== undefined) {
-      cancelCoordTemp();
-    }
+    this.coordTempAvgController = this._abortAndRenew(
+      this.coordTempAvgController,
+    );
 
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoordTemp = c;
-      }),
-    })
-      .then((res) => {
-        this.setState({ waiting: 4 }, function () {
-          this.setAvgAllYears(res, 1);
-        });
-      })
+    Axios.get(request, { signal: this.coordTempAvgController.signal })
+      .then((res) => this.setAvgAllCoords(res, 0))
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('temp coord request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("tempCoordApi failed:", error);
       });
   };
 
   /*** request 001 temp data ***/
   tempCoordApi1 = (request) => {
-    if (cancelCoordTemp1 !== undefined) {
-      cancelCoordTemp1();
-    }
+    this.coordTemp1Controller = this._abortAndRenew(this.coordTemp1Controller);
 
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoordTemp1 = c;
-      }),
-    })
-      .then((res) => {
-        this.setState({ waiting: 1 }, function () {
-          this.setAvgAllYears(res, 4);
-        });
-      })
+    Axios.get(request, { signal: this.coordTemp1Controller.signal })
+      .then((res) => this.setAvgAllCoords(res, 0))
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('temp1 coord request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("tempCoordApi1 failed:", error);
       });
   };
 
   /*** request avg sea ice data ***/
   iceCoordApi = (request) => {
-    if (cancelCoordIce !== undefined) {
-      cancelCoordIce();
-    }
+    this.coordIceAvgController = this._abortAndRenew(
+      this.coordIceAvgController,
+    );
 
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoordIce = c;
-      }),
-    })
-      .then((res) => {
-        this.setState({ waiting: 3 }, function () {
-          this.setAvgAllYears(res, 2);
-        });
-      })
+    Axios.get(request, { signal: this.coordIceAvgController.signal })
+      .then((res) => this.setAvgAllCoords(res, 0))
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('ice coord request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("iceCoordApi failed:", error);
       });
   };
 
   /*** request 001 sea ice data ***/
   iceCoordApi1 = (request) => {
-    if (cancelCoordIce1 !== undefined) {
-      cancelCoordIce1();
-    }
+    this.coordIce1Controller = this._abortAndRenew(this.coordIce1Controller);
 
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoordIce1 = c;
-      }),
-    })
-      .then((res) => {
-        this.setState({ waiting: 0 }, function () {
-          this.setAvgAllYears(res, 5);
-        });
-      })
+    Axios.get(request, { signal: this.coordIce1Controller.signal })
+      .then((res) => this.setAvgAllCoords(res, 0))
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('ice1 coord request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("iceCoordApi1 failed:", error);
       });
   };
 
@@ -1099,8 +1017,7 @@ class AllTogether extends Simulation {
   };
 
   /*** runs on page close ***/
-  componentWillUnmount = () =>
-  {
+  componentWillUnmount = () => {
     try {
       // stop scheduled events + reset timeline
       Tone.Transport.stop();
@@ -1112,6 +1029,19 @@ class AllTogether extends Simulation {
       // don't crash unmount
       console.warn("Tone cleanup failed", e);
     }
+
+    this.yearPrecipController?.abort();
+    this.yearTempController?.abort();
+    this.yearIceController?.abort();
+
+    this.coordPrecipAvgController?.abort();
+    this.coordTempAvgController?.abort();
+    this.coordIceAvgController?.abort();
+
+    this.coordPrecip1Controller?.abort();
+    this.coordTemp1Controller?.abort();
+    this.coordIce1Controller?.abort();
+    
     PubSub.unsubscribe(this.state.token);
     if (isBrowser) {
       window.removeEventListener("resize", this.updateDimensions);

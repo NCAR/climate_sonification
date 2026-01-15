@@ -49,6 +49,12 @@ export class Simulation extends Page {
     this.incrementIndex = this.incrementIndex.bind(this);
   }
 
+  // inside class
+  _abortAndRenew(controller) {
+    if (controller) controller.abort();
+    return new AbortController();
+  }
+
   /*** check if waiting ***/
   getPlayButton = () => {
     if (this.state.waiting > 0) {

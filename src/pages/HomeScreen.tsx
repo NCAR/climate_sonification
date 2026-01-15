@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { useNavigationShim } from "../routing/useNavigationShim";
-import type { Navigation } from "../routing/useNavigationShim";
+import { useNavigationShim, Navigation } from "../routing/useNavigationShim";
 import { isBrowser, isMobile } from "react-device-detect";
 import { eachAloneButton, allTogetherButton, qrImg } from "../const/url";
 import "./HomeScreen.css";

@@ -39,12 +39,7 @@ function isNumeric(value) {
   return /^-?\d+$/.test(value);
 }
 
-let cancelYear;
-let cancelCoord;
-let cancelCoord1;
-let cancelCoord2;
 
-const CancelToken = Axios.CancelToken;
 
 /*** EachAlone Class, returns interactive page
  *** Many items inherited from Simulation Class ***/
@@ -65,6 +60,10 @@ class EachAlone extends Simulation {
     this.state.tempBool = 0;
     this.state.iceBool = 0;
   }
+  yearController = null;
+  coordControllerAvg = null;
+  coordController1Avg = null;
+  coordController2Avg = null;
 
   /*** Run this when stop is pressed or when index === 180 ***/
   stopMusic = (terminate) => {
@@ -554,32 +553,21 @@ class EachAlone extends Simulation {
 
   //request all data for a certain year
   yearApi = (request) => {
-    if (cancelYear !== undefined) {
-      cancelYear();
-    }
+    this.yearController = this._abortAndRenew(this.yearController);
 
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelYear = c;
-      }),
-    })
-
+    Axios.get(request, { signal: this.yearController.signal })
       .then((res) => {
         const year_data = res.data.data;
         if (this.state.play === 0) {
-          this.setState({
-            yearData: [...year_data],
-            useArray: 3,
-          });
+          this.setState({ yearData: [...year_data], useArray: 3 });
         } else {
           this.setState({ yearData: [...year_data] });
         }
-        ////console.log(year_data);
       })
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          //console.log('year request cancelled');
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("yearApi failed:", error);
       });
   };
 
@@ -665,109 +653,70 @@ class EachAlone extends Simulation {
   /*** request all years for a specific coordinate, using avg table
     TODO: Add more error handling ***/
   coordApi = (request) => {
-    if (cancelCoord !== undefined) {
-      cancelCoord();
-    }
+    this.coordControllerAvg = this._abortAndRenew(this.coordControllerAvg);
 
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoord = c;
-      }),
-    })
+    Axios.get(request, { signal: this.coordControllerAvg.signal })
       .then((res) => {
         const coord_data = res.data.data;
-        var currwait = this.state.waiting;
-        this.setState({
-          coordData: [...coord_data],
-          waiting: currwait - 1,
-        });
+        const currwait = this.state.waiting;
+        this.setState({ coordData: [...coord_data], waiting: currwait - 1 });
         this.setupGraph();
         this.updateGraph();
-        ////console.log(coord_data);
-        if (this.state.state === 0) {
-          this.setPrecipNotes(coord_data);
-        } else if (this.state.state === 1) {
-          this.setTempNotes(coord_data);
-        } else if (this.state.state === 2) {
-          this.setIceNotes(coord_data);
-        }
+
+        if (this.state.state === 0) this.setPrecipNotes(coord_data);
+        else if (this.state.state === 1) this.setTempNotes(coord_data);
+        else this.setIceNotes(coord_data);
       })
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          //console.log('coord request cancelled');
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("coordApi failed:", error);
       });
   };
 
   /*** request all years for a specific coordinate, using 001 table ***/
   coordApi1 = (request) => {
-    if (cancelCoord1 !== undefined) {
-      cancelCoord1();
-    }
+    this.coordController1Avg = this._abortAndRenew(this.coordController1Avg);
 
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoord1 = c;
-      }),
-    })
+    Axios.get(request, { signal: this.coordController1Avg.signal })
       .then((res) => {
         const coord_data = res.data.data;
-        var currwait = this.state.waiting;
-        this.setState({
-          coordData1: [...coord_data],
-          waiting: currwait - 1,
-        });
+        const currwait = this.state.waiting;
+        this.setState({ coordData: [...coord_data], waiting: currwait - 1 });
         this.setupGraph();
         this.updateGraph();
-        ////console.log(coord_data);
-        if (this.state.state === 0) {
-          this.setPrecipNotes1(coord_data);
-        } else if (this.state.state === 1) {
-          this.setTempNotes1(coord_data);
-        } else if (this.state.state === 2) {
-          this.setIceNotes1(coord_data);
-        }
+
+        if (this.state.state === 0) this.setPrecipNotes(coord_data);
+        else if (this.state.state === 1) this.setTempNotes(coord_data);
+        else this.setIceNotes(coord_data);
       })
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          //console.log('coord1 request cancelled');
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("coordApi1 failed:", error);
       });
   };
 
   /*** request all years for a specific coordinate, using 002 table ***/
   coordApi2 = (request) => {
-    if (cancelCoord2 !== undefined) {
-      cancelCoord2();
-    }
+    this.coordController2Avg = this._abortAndRenew(this.coordController2Avg);
 
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoord1 = c;
-      }),
-    })
+    Axios.get(request, { signal: this.coordController2Avg.signal })
       .then((res) => {
         const coord_data = res.data.data;
-        var currwait = this.state.waiting;
-        this.setState({
-          coordData2: [...coord_data],
-          waiting: currwait - 1,
-        });
+        const currwait = this.state.waiting;
+        this.setState({ coordData: [...coord_data], waiting: currwait - 1 });
         this.setupGraph();
         this.updateGraph();
-        ////console.log(coord_data);
-        if (this.state.state === 0) {
-          this.setPrecipNotes2(coord_data);
-        } else if (this.state.state === 1) {
-          this.setTempNotes2(coord_data);
-        } else if (this.state.state === 2) {
-          this.setIceNotes2(coord_data);
-        }
+
+        if (this.state.state === 0) this.setPrecipNotes(coord_data);
+        else if (this.state.state === 1) this.setTempNotes(coord_data);
+        else this.setIceNotes(coord_data);
       })
       .catch((error) => {
-        if (Axios.isCancel(error)) {
-          //console.log('coord2 request cancelled');
-        }
+        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
+          return;
+        console.error("coordApi2 failed:", error);
       });
   };
 
@@ -1056,9 +1005,8 @@ class EachAlone extends Simulation {
   };
 
   /*** runs on page destruction ***/
-	componentWillUnmount = () =>
-	{
-	  try {
+  componentWillUnmount = () => {
+    try {
       // stop scheduled events + reset timeline
       Tone.Transport.stop();
       Tone.Transport.cancel(0);
@@ -1069,12 +1017,19 @@ class EachAlone extends Simulation {
       // don't crash unmount
       console.warn("Tone cleanup failed", e);
     }
+    
+    // Abort any inflight Axios
+    this.yearController?.abort();
+    this.coordControllerAvg?.abort();
+    this.coordController1?.abort();
+    this.coordController2?.abort();
+
     PubSub.unsubscribe(this.state.token);
     if (isBrowser) {
       window.removeEventListener("resize", this.updateDimensions);
     }
     window.removeEventListener("orientationchange", this.rotateDimensions);
-  };
+  };;
 
   /*** Picks where to put crosshairs ***/
   getLocations = () => {
