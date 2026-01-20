@@ -841,10 +841,6 @@ class AllTogether extends Simulation {
       () => {
         // 2) Build notes from the same payload (synchronous)
         notesSetter(data);
-
-        // 3) Redraw graph after state has been updated
-        //this.setupGraph();
-        //this.updateGraph();
       },
     );
   };
@@ -1451,8 +1447,6 @@ class AllTogether extends Simulation {
 
     const { largeControlBlockStyle, graphHeight, graphWidth } =
       this.getTogetherStyles(modelWidth, controlHeight, controlWidth);
-
-    //this.updateGraph();
 
     /*** Return the page ***/
 

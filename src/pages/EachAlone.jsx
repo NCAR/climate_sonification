@@ -687,8 +687,6 @@ class EachAlone extends Simulation {
       .then((res) => {
         const coord_data = res.data.data;
         this.setState({ coordData: [...coord_data] }, this._decWaiting);
-        //this.setupGraph();
-        //this.updateGraph();
 
         if (this.state.state === 0) this.setPrecipNotes(coord_data);
         else if (this.state.state === 1) this.setTempNotes(coord_data);
@@ -709,8 +707,6 @@ class EachAlone extends Simulation {
       .then((res) => {
         const coord_data = res.data.data;
         this.setState({ coordData1: [...coord_data] }, this._decWaiting);
-        //this.setupGraph();
-        //this.updateGraph();
 
         if (this.state.state === 0) this.setPrecipNotes1(coord_data);
         else if (this.state.state === 1) this.setTempNotes1(coord_data);
@@ -731,8 +727,6 @@ class EachAlone extends Simulation {
       .then((res) => {
         const coord_data = res.data.data;
         this.setState({ coordData2: [...coord_data] }, this._decWaiting);
-        // this.setupGraph();
-        // this.updateGraph();
 
         if (this.state.state === 0) this.setPrecipNotes2(coord_data);
         else if (this.state.state === 1) this.setTempNotes2(coord_data);
@@ -1383,8 +1377,6 @@ class EachAlone extends Simulation {
       text: dataBlockStyle.text,
       textAlign: dataBlockStyle.textAlign,
     };
-
-    //this.updateGraph();
 
     /*** Return the page ***/
     return (

@@ -1,7 +1,5 @@
-// App.js
 import * as React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-
 import HomeScreenWrapper from "./pages/HomeScreen.jsx";
 import AllTogetherWrapper from "./pages/AllTogether.jsx";
 import EachAloneWrapper from "./pages/EachAlone.jsx";
