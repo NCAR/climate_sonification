@@ -1,6 +1,6 @@
 import * as React from "react";
+import { timer } from "../sim/timer";
 
-const timer = (ms) => new Promise((res) => setTimeout(res, ms));
 
 /*** Shared class for EachAlone and AllTogether class ***/
 export class Page extends React.Component {

@@ -4,9 +4,26 @@ import { Page } from "./Page.jsx";
 import { playUrl, loading, dbUrl } from "../const/url.js";
 import Axios from "axios";
 import { SCALES, getScale } from "../const/scales.js";
+import { timer } from "../sim/timer";
+import { abortAndRenew } from "../sim/abort";
 
-/* used to wait a certain amount of ms */
-const timer = (ms) => new Promise((res) => setTimeout(res, ms));
+import {
+  calcValByIndex,
+  calcLargestVal,
+  calcValByCoord,
+  calcDBCoords,
+  calcDBIndex,
+} from "../sim/dataMath";
+
+import {
+  calcGraphDims,
+  calcPrecipGraphVars,
+  calcTempGraphVars,
+} from "../sim/graphMath";
+
+import { createNote } from "../sim/noteMapping";
+import { createSynth } from "../sim/synthFactory";
+import { getPlayButtonSrc } from "../sim/uiSelectors";
 
 /*** Shared class for EachAlone and AllTogether class ***/
 export class Simulation extends Page {
@@ -57,78 +74,45 @@ export class Simulation extends Page {
 
   /*** check if waiting ***/
   getPlayButton = () => {
-    if (this.state.waiting > 0) {
-      return loading;
-    } else {
-      return this.state.playButton;
-    }
+    return getPlayButtonSrc({
+      waiting: this.state.waiting,
+      playButton: this.state.playButton,
+      loadingSrc: loading,
+    });
   };
 
   /*** return calculations based on page size for graph ***/
   getGraphDims = () => {
-    var graphBottom = Math.floor(
-      this.state.pageBottom * this.state.GRAPHVERTDIV,
-    );
-    var modelWidth = Math.floor(this.state.pageRight * this.state.MAPDIV);
-
-    var bottom = graphBottom - 1;
-    var right = modelWidth - 1;
-
-    var step = right / 180;
-    var avg = bottom / 2;
-
-    var co2_median = 300;
-    var co2_range = 700;
-    var co2_avg = Math.floor(avg * 1.6);
-
-    return { step, avg, co2_median, co2_range, co2_avg };
+    return calcGraphDims({
+      pageBottom: this.state.pageBottom,
+      pageRight: this.state.pageRight,
+      GRAPHVERTDIV: this.state.GRAPHVERTDIV,
+      MAPDIV: this.state.MAPDIV,
+    });
   };
 
   /*** variables te determine graph drawing ***/
   getPrecipGraphVars = (data) => {
-    var precip_median = 100;
-    var precip_max = this.getLargestVal(data, 0) + 40;
-    var precip_range = precip_max - precip_median;
-    return { precip_median, precip_range };
+    return calcPrecipGraphVars(data);
   };
 
   getTempGraphVars = (data, avg) => {
-    var temp_median = 0;
-    var temp_max = this.getLargestVal(data, 0) + 3;
-    var temp_range = temp_max;
-    var temp_avg = Math.floor(avg * 1.5);
-    return { temp_median, temp_range, temp_avg };
+    return calcTempGraphVars(data, avg);
   };
 
   /*** read data value for a certain index (year-1920) ***/
   getValByIndex = (arr, ind) => {
-    var avgKeys = Object.keys(arr[0]);
-    var useAvgKey = avgKeys[ind + 2];
-    var val = arr[0][useAvgKey];
-    return val;
+    return calcValByIndex(arr, ind);
   };
 
   /*** get largest val over simulation years ***/
   getLargestVal = (arr, start) => {
-    var avgKeys = Object.keys(arr[0]);
-    var useAvgKey, val;
-    var largestVal = start;
-    for (var i = 0; i <= 180; i++) {
-      useAvgKey = avgKeys[i + 2];
-      val = arr[0][useAvgKey];
-      if (val > largestVal) {
-        largestVal = val;
-      }
-    }
-    return largestVal;
+    return calcLargestVal(arr, start);
   };
 
   /*** read data value for coordinate ***/
   getValByCoord = (arr, coord) => {
-    var avgKeys0 = Object.keys(arr[coord]);
-    var useAvgKey0 = avgKeys0[0];
-    var val = arr[coord][useAvgKey0];
-    return val;
+    return calcValByCoord(arr, coord);
   };
 
   /* create and send DB request for CO2 data */
@@ -310,285 +294,7 @@ export class Simulation extends Page {
 
   // return the note to be played
   getNote = (type, value, scale = "maj") => {
-    var retval = 0;
-    //precip
-    if (type === 0) {
-      if (value < 50) {
-        retval = 0;
-      } else if (value < 60) {
-        retval = 1;
-      } else if (value < 70) {
-        retval = 2;
-      } else if (value < 75) {
-        retval = 3;
-      } else if (value < 80) {
-        retval = 4;
-      } else if (value < 85) {
-        retval = 5;
-      } else if (value < 90) {
-        retval = 6;
-      } else if (value < 92.5) {
-        retval = 7;
-      } else if (value < 95) {
-        retval = 8;
-      } else if (value < 97.5) {
-        retval = 9;
-      } else if (value < 100) {
-        retval = 10;
-      } else if (value < 102.5) {
-        retval = 11;
-      } else if (value < 105) {
-        retval = 12;
-      } else if (value < 107.5) {
-        retval = 13;
-      } else if (value < 110) {
-        retval = 14;
-      } else if (value < 115) {
-        retval = 15;
-      } else if (value < 120) {
-        retval = 16;
-      } else if (value < 125) {
-        retval = 17;
-      } else if (value < 130) {
-        retval = 18;
-      } else if (value < 135) {
-        retval = 19;
-      } else if (value < 140) {
-        retval = 20;
-      } else if (value < 145) {
-        retval = 21;
-      } else if (value < 150) {
-        retval = 22;
-      } else if (value < 155) {
-        retval = 23;
-      } else if (value < 160) {
-        retval = 24;
-      } else if (value < 165) {
-        retval = 25;
-      } else if (value < 170) {
-        retval = 26;
-      } else if (value < 175) {
-        retval = 27;
-      } else if (value < 180) {
-        retval = 28;
-      } else if (value < 190) {
-        retval = 29;
-      } else if (value < 200) {
-        retval = 30;
-      } else if (value < 220) {
-        retval = 31;
-      } else if (value < 240) {
-        retval = 32;
-      } else if (value < 260) {
-        retval = 33;
-      } else if (value < 280) {
-        retval = 34;
-      } else {
-        retval = 35;
-      }
-    }
-    //temp
-    else if (type === 1) {
-      if (value < -0.5) {
-        retval = 0;
-      } else if (value < -0.25) {
-        retval = 1;
-      } else if (value < 0) {
-        retval = 2;
-      } else if (value < 0.05) {
-        retval = 3;
-      } else if (value < 0.1) {
-        retval = 4;
-      } else if (value < 0.15) {
-        retval = 5;
-      } else if (value < 0.2) {
-        retval = 6;
-      } else if (value < 0.3) {
-        retval = 7;
-      } else if (value < 0.4) {
-        retval = 8;
-      } else if (value < 0.5) {
-        retval = 9;
-      } else if (value < 0.6) {
-        retval = 10;
-      } else if (value < 0.75) {
-        retval = 11;
-      } else if (value < 1) {
-        retval = 12;
-      } else if (value < 1.25) {
-        retval = 13;
-      } else if (value < 1.5) {
-        retval = 14;
-      } else if (value < 1.75) {
-        retval = 15;
-      } else if (value < 2) {
-        retval = 17;
-      } else if (value < 2.5) {
-        retval = 18;
-      } else if (value < 3) {
-        retval = 19;
-      } else if (value < 3.5) {
-        retval = 20;
-      } else if (value < 4) {
-        retval = 21;
-      } else if (value < 4.5) {
-        retval = 22;
-      } else if (value < 5) {
-        retval = 23;
-      } else if (value < 6) {
-        retval = 24;
-      } else if (value < 7) {
-        retval = 25;
-      } else if (value < 8) {
-        retval = 26;
-      } else if (value < 9) {
-        retval = 27;
-      } else if (value < 10) {
-        retval = 28;
-      } else if (value < 11) {
-        retval = 29;
-      } else if (value < 12) {
-        retval = 30;
-      } else if (value < 13) {
-        retval = 31;
-      } else if (value < 14) {
-        retval = 32;
-      } else if (value < 15) {
-        retval = 33;
-      } else if (value < 16) {
-        retval = 34;
-      } else {
-        retval = 35;
-      }
-    }
-    //sea ice
-    else if (type === 2) {
-      if (value > 0.98) {
-        retval = 34;
-      } else if (value > 0.96) {
-        retval = 33;
-      } else if (value > 0.955) {
-        retval = 32;
-      } else if (value > 0.95) {
-        retval = 31;
-      } else if (value > 0.945) {
-        retval = 30;
-      } else if (value > 0.94) {
-        retval = 29;
-      } else if (value > 0.93) {
-        retval = 28;
-      } else if (value > 0.92) {
-        retval = 27;
-      } else if (value > 0.91) {
-        retval = 26;
-      } else if (value > 0.9) {
-        retval = 25;
-      } else if (value > 0.89) {
-        retval = 24;
-      } else if (value > 0.875) {
-        retval = 23;
-      } else if (value > 0.85) {
-        retval = 22;
-      } else if (value > 0.825) {
-        retval = 21;
-      } else if (value > 0.8) {
-        retval = 20;
-      } else if (value > 0.75) {
-        retval = 19;
-      } else if (value > 0.7) {
-        retval = 18;
-      } else if (value > 0.65) {
-        retval = 17;
-      } else if (value > 0.6) {
-        retval = 16;
-      } else if (value > 0.55) {
-        retval = 15;
-      } else if (value > 0.5) {
-        retval = 14;
-      } else if (value > 0.45) {
-        retval = 13;
-      } else if (value > 0.4) {
-        retval = 12;
-      } else if (value > 0.35) {
-        retval = 11;
-      } else if (value > 0.3) {
-        retval = 10;
-      } else if (value > 0.25) {
-        retval = 9;
-      } else if (value > 0.2) {
-        retval = 8;
-      } else if (value > 0.15) {
-        retval = 7;
-      } else if (value > 0.1) {
-        retval = 6;
-      } else if (value > 0.08) {
-        retval = 5;
-      } else if (value > 0.06) {
-        retval = 4;
-      } else if (value > 0.04) {
-        retval = 3;
-      } else if (value > 0.02) {
-        retval = 2;
-      } else if (value > 0.01) {
-        retval = 1;
-      } else {
-        retval = 0;
-      }
-    }
-    //co2
-    else if (type === 3) {
-      if (value < 310) {
-        retval = 7;
-      } else if (value < 325) {
-        retval = 8;
-      } else if (value < 350) {
-        retval = 9;
-      } else if (value < 375) {
-        retval = 10;
-      } else if (value < 400) {
-        retval = 11;
-      } else if (value < 425) {
-        retval = 12;
-      } else if (value < 450) {
-        retval = 13;
-      } else if (value < 475) {
-        retval = 14;
-      } else if (value < 500) {
-        retval = 15;
-      } else if (value < 525) {
-        retval = 16;
-      } else if (value < 550) {
-        retval = 17;
-      } else if (value < 575) {
-        retval = 18;
-      } else if (value < 600) {
-        retval = 19;
-      } else if (value < 625) {
-        retval = 20;
-      } else if (value < 650) {
-        retval = 21;
-      } else if (value < 675) {
-        retval = 22;
-      } else if (value < 700) {
-        retval = 23;
-      } else if (value < 725) {
-        retval = 24;
-      } else if (value < 750) {
-        retval = 25;
-      } else if (value < 775) {
-        retval = 26;
-      } else if (value < 800) {
-        retval = 27;
-      } else if (value < 850) {
-        retval = 28;
-      } else if (value < 900) {
-        retval = 30;
-      } else {
-        retval = 31;
-      }
-    }
-    const currentScale = SCALES[scale];
-    return currentScale[retval];
+    return createNote(type, value, scale);
   };
 
   getPianoNotes = (index) => {
@@ -795,90 +501,9 @@ export class Simulation extends Page {
   /*** returns synth to be played
     TODO: set synths 1 time on componentDidMount, then return them with this function
     this wil fix playing the map sound issue, which is caused by spawining and disposing synths ***/
-  getSynth = (type) => {
-    var retsynth;
-    //marimba
-    if (type === 0) {
-      retsynth = new Tone.FMSynth({
-        modulation: {
-          type: "sine",
-          frequency: 220,
-        },
-        oscillator: {
-          type: "sine",
-        },
-        envelope: {
-          attack: 0.05,
-          decay: 0.2,
-          sustain: 0.7,
-          release: 1,
-        },
-        volume: -4,
-      }).toDestination();
-    }
-    //woodwind
-    else if (type === 1) {
-      retsynth = new Tone.Synth({
-        oscillator: {
-          partials: [1, 0, 0.75, 0, 0.5, 0, 0.14, 0, 0.5, 0, 0.17, 0, 0.12],
-        },
-        envelope: {
-          attack: 0.1,
-          decay: 0.2,
-          sustain: 0.9,
-          release: 0.5,
-        },
-        volume: -4,
-      }).toDestination();
-    }
-    // Violin
-    else if (type === 2) {
-      retsynth = new Tone.FMSynth({
-        harmonicity: 3.01,
-        modulationIndex: 14,
-        oscillator: {
-          type: "triangle",
-        },
-        envelope: {
-          attack: 0.2,
-          decay: 0.5,
-          sustain: 0.5,
-          release: 1,
-        },
-        modulation: {
-          type: "square",
-        },
-        modulationEnvelope: {
-          attack: 0.01,
-          decay: 0.5,
-          sustain: 0.2,
-          release: 0.1,
-        },
-        volume: -4,
-      }).toDestination();
-      //  retsynth.volume.value = 10;
-    }
-    // Piano
-    else if (type === 3) {
-      const reverb = new Tone.Reverb(0.6);
-      const fx = new Tone.EQ3(0.5, 1, -5).chain(reverb).toDestination();
-      retsynth = new Tone.Synth({
-        volume: -12,
-        oscillator: {
-          type: "fatcustom",
-          partials: [0.8, 0.4, 0, 0.15, 0.075],
-          spread: 12,
-          count: 2,
-        },
-        envelope: {
-          attack: 0.001,
-          decay: 1.2,
-          sustain: 0.9,
-          release: 1.3,
-        },
-      }).connect(fx);
-    }
-    return retsynth;
+  getSynth = (type) =>
+  {
+    return createSynth(type);
   };
 
   /*** Another increment method to work with tone ***/
@@ -893,31 +518,12 @@ export class Simulation extends Page {
 
   /*** convert db coords from 2d to 1d ***/
   getDBIndex = (dbX, dbY) => {
-    var coord_index = (dbY - 1) * 360 + (dbX - 1);
-    return coord_index;
+    return calcDBIndex(dbX, dbY);
   };
 
   /*** return db coords from lat and lon in states ***/
   getDBCoords = () => {
-    var dbX = 1;
-    var dbY = 1;
-    var useLat = this.state.latitude;
-    var useLon = this.state.longitude;
-
-    if (useLat === -90) {
-      useLat = -89;
-    }
-
-    if (useLon >= 0) {
-      useLon -= 179;
-    } else {
-      useLon += 180;
-    }
-
-    dbY = Math.floor(91 - useLat);
-    dbX = Math.floor(180 + useLon);
-
-    return { dbX, dbY };
+    return calcDBCoords(this.state.latitude, this.state.longitude);
   };
 
   /*** onPress for 'moderato' ***/
