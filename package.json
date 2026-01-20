@@ -6,9 +6,9 @@
   "dependencies": {
     "axios": "^1.13.2",
     "pubsub-js": "^1.9.3",
-    "react": "^18.2.0",
+    "react": "18.3.1",
     "react-device-detect": "^2.2.3",
-    "react-dom": "^18.2.0",
+    "react-dom": "18.3.1",
     "react-router-dom": "^6.30.3",
     "tone": "^14.7.77",
     "web-vitals": "^2.1.4"
@@ -21,8 +21,10 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/parser": "^8.53.1",
     "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^8.57.1",
     "eslint-plugin-react": "^7.37.5",
