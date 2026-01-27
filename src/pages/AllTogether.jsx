@@ -9,6 +9,8 @@ import * as Tone from "tone";
 import { getClosestCity, getInfo } from "../const/cities.js";
 import { RED, YELLOW, GREEN, BLUE } from "../const/color.js";
 
+import { abortAndRenew } from "../sim/abort";
+
 import {
   combinedImgs,
   dbUrl,
@@ -580,7 +582,7 @@ class AllTogether extends Simulation {
 
   /*** get all avg precip values for a specific year ***/
   precipYearApi = (request) => {
-    this.yearPrecipController = this._abortAndRenew(this.yearPrecipController);
+    this.yearPrecipController = abortAndRenew(this.yearPrecipController);
 
     Axios.get(request, { signal: this.yearPrecipController.signal })
       .then((res) => this.setAvgAllCoords(res, 0))
@@ -593,7 +595,7 @@ class AllTogether extends Simulation {
 
   /*** get all avg temp values for a specific year ***/
   tempYearApi = (request) => {
-    this.yearTempController = this._abortAndRenew(this.yearTempController);
+    this.yearTempController = abortAndRenew(this.yearTempController);
 
     Axios.get(request, { signal: this.yearTempController.signal })
       .then((res) => this.setAvgAllCoords(res, 1))
@@ -606,7 +608,7 @@ class AllTogether extends Simulation {
 
   /*** get all avg sea ice values for a specific year ***/
   iceYearApi = (request) => {
-    this.yearIceController = this._abortAndRenew(this.yearIceController);
+    this.yearIceController = abortAndRenew(this.yearIceController);
 
     Axios.get(request, { signal: this.yearIceController.signal })
       .then((res) => this.setAvgAllCoords(res, 2))
@@ -716,7 +718,7 @@ class AllTogether extends Simulation {
 
   /*** request avg precip data ***/
   precipCoordApi = (request) => {
-    this.coordPrecipAvgController = this._abortAndRenew(
+    this.coordPrecipAvgController = abortAndRenew(
       this.coordPrecipAvgController,
     );
 
@@ -731,7 +733,7 @@ class AllTogether extends Simulation {
 
   /*** request 001 precip data ***/
   precipCoordApi1 = (request) => {
-    this.coordPrecip1Controller = this._abortAndRenew(
+    this.coordPrecip1Controller = abortAndRenew(
       this.coordPrecip1Controller,
     );
 
@@ -746,7 +748,7 @@ class AllTogether extends Simulation {
 
   /*** request avg temp data ***/
   tempCoordApi = (request) => {
-    this.coordTempAvgController = this._abortAndRenew(
+    this.coordTempAvgController = abortAndRenew(
       this.coordTempAvgController,
     );
 
@@ -761,7 +763,7 @@ class AllTogether extends Simulation {
 
   /*** request 001 temp data ***/
   tempCoordApi1 = (request) => {
-    this.coordTemp1Controller = this._abortAndRenew(this.coordTemp1Controller);
+    this.coordTemp1Controller = abortAndRenew(this.coordTemp1Controller);
 
     Axios.get(request, { signal: this.coordTemp1Controller.signal })
       .then((res) => this.setAvgAllYears(res, 4))
@@ -774,7 +776,7 @@ class AllTogether extends Simulation {
 
   /*** request avg sea ice data ***/
   iceCoordApi = (request) => {
-    this.coordIceAvgController = this._abortAndRenew(
+    this.coordIceAvgController = abortAndRenew(
       this.coordIceAvgController,
     );
 
@@ -789,7 +791,7 @@ class AllTogether extends Simulation {
 
   /*** request 001 sea ice data ***/
   iceCoordApi1 = (request) => {
-    this.coordIce1Controller = this._abortAndRenew(this.coordIce1Controller);
+    this.coordIce1Controller = abortAndRenew(this.coordIce1Controller);
 
     Axios.get(request, { signal: this.coordIce1Controller.signal })
       .then((res) => this.setAvgAllYears(res, 5))

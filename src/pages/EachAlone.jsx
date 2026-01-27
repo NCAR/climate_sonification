@@ -9,6 +9,7 @@ import { Simulation } from "./Simulation.jsx";
 import * as Tone from "tone";
 import { getClosestCity, getInfo } from "../const/cities.js";
 import { RED, YELLOW, GREEN, BLUE } from "../const/color.js";
+import { abortAndRenew } from "../sim/abort";
 
 import {
   precipImgs,
@@ -581,7 +582,7 @@ class EachAlone extends Simulation {
 
   //request all data for a certain year
   yearApi = (request) => {
-    this.yearController = this._abortAndRenew(this.yearController);
+    this.yearController = abortAndRenew(this.yearController);
 
     Axios.get(request, { signal: this.yearController.signal })
       .then((res) => {
@@ -681,7 +682,7 @@ class EachAlone extends Simulation {
   /*** request all years for a specific coordinate, using avg table
     TODO: Add more error handling ***/
   coordApi = (request) => {
-    this.coordControllerAvg = this._abortAndRenew(this.coordControllerAvg);
+    this.coordControllerAvg = abortAndRenew(this.coordControllerAvg);
 
     Axios.get(request, { signal: this.coordControllerAvg.signal })
       .then((res) => {
@@ -701,7 +702,7 @@ class EachAlone extends Simulation {
 
   /*** request all years for a specific coordinate, using 001 table ***/
   coordApi1 = (request) => {
-    this.coordController1Avg = this._abortAndRenew(this.coordController1Avg);
+    this.coordController1Avg = abortAndRenew(this.coordController1Avg);
 
     Axios.get(request, { signal: this.coordController1Avg.signal })
       .then((res) => {
@@ -721,7 +722,7 @@ class EachAlone extends Simulation {
 
   /*** request all years for a specific coordinate, using 002 table ***/
   coordApi2 = (request) => {
-    this.coordController2Avg = this._abortAndRenew(this.coordController2Avg);
+    this.coordController2Avg = abortAndRenew(this.coordController2Avg);
 
     Axios.get(request, { signal: this.coordController2Avg.signal })
       .then((res) => {
