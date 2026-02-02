@@ -4,10 +4,12 @@ import Axios from "axios";
 import PubSub from "pubsub-js";
 import { isBrowser } from "react-device-detect";
 import { Simulation } from "./Simulation";
+import type { SimulationProps } from "./Simulation";
 import * as Tone from "tone";
-import { getClosestCity, getInfo } from "../const/cities.js";
-import { RED, YELLOW, GREEN, BLUE } from "../const/color.js";
+import { getClosestCity, getInfo } from "../const/cities";
+import { RED, YELLOW, GREEN, BLUE } from "../const/color";
 import { abortAndRenew } from "../sim/abort";
+import { AvgArr,AvgRow } from "../sim/dataMath.js";
 
 import {
   precipImgs,
@@ -34,24 +36,31 @@ import {
   playUrl,
 } from "../const/url.js";
 
-function isNumeric(value) {
+function isNumeric(value: string): boolean {
   return /^-?\d+$/.test(value);
 }
-const transport = () => Tone.getTransport();
 
+type ApiResponse<T> = { data: T };
 
+function isCanceledAxiosError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const e = error as { code?: unknown; name?: unknown };
+  return e.code === "ERR_CANCELED" || e.name === "CanceledError";
+}
+type ToneTransport = ReturnType<typeof Tone.getTransport>;
+const transport = (): ToneTransport => Tone.getTransport();
 
 /*** EachAlone Class, returns interactive page
  *** Many items inherited from Simulation Class ***/
 class EachAlone extends Simulation {
-  constructor(props) {
+  constructor(props:SimulationProps) {
     super(props);
     this.state = {
       ...this.state,
-      yearData: [0],
-      coordData: [0],
-      coordData1: [0],
-      coordData2: [0],
+      yearData: [{} as AvgRow],
+      coordData: [{} as AvgRow],
+      coordData1: [{} as AvgRow],
+      coordData2: [{} as AvgRow],
       state: 0,
       modelStr: "/precip/precip_ens",
       precipSrc: precipActive,
@@ -63,34 +72,43 @@ class EachAlone extends Simulation {
       iceBool: false,
     };
   }
-  yearController = null;
-  coordControllerAvg = null;
-  coordController1Avg = null;
-  coordController2Avg = null;
+  yearController:AbortController | null = null;
+  coordControllerAvg:AbortController | null = null;
+  coordController1Avg:AbortController | null = null;
+  coordController2Avg:AbortController | null = null;
 
   // Clamp waiting so it never goes negative
-  _decWaiting = () => {
+  _decWaiting = ():void => {
     this.setState((prev) => ({
       waiting: Math.max(0, (prev.waiting || 0) - 1),
     }));
   };
 
   // Optional: set waiting safely (helps avoid undefined)
-  _setWaiting = (n) => {
+  _setWaiting = (n:number):void => {
     this.setState({ waiting: Math.max(0, n | 0) });
   };
 
-  _hasCo2AtIndex = (i) => {
-    const row = this.state.co2data?.[i];
-    return row && typeof row === "object" && typeof row.co2_val === "number";
+  _hasCo2AtIndex = (i: number): boolean => {
+    const row = this.state.co2data[i];
+    return typeof row?.co2_val === "number";
   };
 
-  _getCo2Val = (i) => {
-    return this._hasCo2AtIndex(i) ? this.state.co2data[i].co2_val : null;
+  _getCo2Val = (i: number): number | null => {
+    if (!this._hasCo2AtIndex(i)) return null;
+
+    if (!this.state.co2data[i])
+    {
+      return null;
+    }
+    const raw = this.state.co2data[i].co2_val;
+    const n = typeof raw === "string" ? Number(raw) : raw;
+
+    return Number.isFinite(n) ? n : null;
   };
 
   /*** Run this when stop is pressed or when index === 180 ***/
-  stopMusic = (terminate?:boolean) => {
+  stopMusic = (terminate?:boolean):void => {
     //console.log('stopping');
 
     this.setState(
@@ -98,7 +116,7 @@ class EachAlone extends Simulation {
         play: 0,
         playButton: playUrl,
       },
-      function () {
+      () => {
         transport().stop();
         transport().cancel(0);
         if (terminate === false) {
@@ -109,7 +127,7 @@ class EachAlone extends Simulation {
   };
 
   /*** onPress for 'Precipitation' Button ***/
-  setPrecip = () => {
+  setPrecip = ():void => {
     /* change page vars */
     this.setState({
       state: 0,
@@ -130,7 +148,7 @@ class EachAlone extends Simulation {
   };
 
   /*** onPress for 'Temperature' Button ***/
-  setTemp = () => {
+  setTemp = ():void => {
     this.setState({
       state: 1,
       modelStr: "/temp/temp_ens",
@@ -155,7 +173,7 @@ class EachAlone extends Simulation {
   };
 
   /*** onPress for 'Sea Ice' Button ***/
-  setIce = () => {
+  setIce = ():void => {
     this.setState({
       state: 2,
       modelStr: "/seaIce/ice_ens",
@@ -180,7 +198,7 @@ class EachAlone extends Simulation {
   };
 
   /*** Queries db upon mouse/finger release from map, only if simulation stopped ***/
-  onPointerUp = () => {
+  onPointerUp = ():void => {
     //console.log('kill map transport on pointer up');
     //console.log('play state : '+ this.state.play);
     this.killMapTransport();
@@ -195,7 +213,7 @@ class EachAlone extends Simulation {
   };
 
   /*** called when the window is resized ***/
-  updateDimensions = () => {
+  updateDimensions = ():void => {
     const newheight = window.innerHeight;
     const newwidth = window.innerWidth;
 
@@ -236,10 +254,10 @@ class EachAlone extends Simulation {
   /*** Used to calculate coords pressed on the map
     *** Leave this alone unless messing with DIV sizing
     name is misnomer, its acutally used for onPointerMove***/
-  onMouseDown = (e) => {
+  onMouseDown = (e: React.MouseEvent | React.PointerEvent): void => {
     //check if mouse is clicked
     if (e.buttons !== 1) {
-      return -1;
+      return;
     }
     //console.log('play state: '+this.state.play);
     if (this.state.play === 1) {
@@ -338,7 +356,7 @@ class EachAlone extends Simulation {
         longitude: Math.floor(lonSave),
         useArray: 0,
       },
-      function () {
+      () => {
         //get new data values and play sound
         const { dbX, dbY } = this.getDBCoords();
         const coord_index = this.getDBIndex(dbX, dbY);
@@ -365,9 +383,13 @@ class EachAlone extends Simulation {
   };
 
   /*** Writes data to the graph ***/
-  updateGraph() {
+  updateGraph():void {
     if (this.state.index > 0 && this.state.index <= 180) {
-      const ctx = this.graphRef.current.getContext("2d");
+      const canvas = this.graphRef.current;
+      if (!canvas) return;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
       const { step, avg, co2_median, co2_range, co2_avg } = this.getGraphDims();
 
@@ -376,9 +398,22 @@ class EachAlone extends Simulation {
 
       //draw co2 line
       ctx.beginPath();
-      for (let co2Ind = 1; co2Ind <= this.state.index; co2Ind++) {
-        prev_val = this.state.co2data[co2Ind - 1].co2_val;
-        coord_val = this.state.co2data[co2Ind].co2_val;
+      for (let co2Ind = 1; co2Ind <= this.state.index; co2Ind++)
+      {
+        const prevRow = this.state.co2data[co2Ind - 1];
+        const row = this.state.co2data[co2Ind];
+
+        if (!prevRow || !row) continue;
+        const prevRaw = prevRow.co2_val;
+        const raw = row.co2_val;
+
+        const prev_val =
+          typeof prevRaw === "string" ? Number(prevRaw) : prevRaw;
+        const coord_val =
+          typeof raw === "string" ? Number(raw) : raw;
+
+        // If parsing fails, decide what behavior you want:
+        if (!Number.isFinite(prev_val) || !Number.isFinite(coord_val)) continue;
 
         ctx.moveTo(
           1 + step * (co2Ind - 1),
@@ -579,27 +614,26 @@ class EachAlone extends Simulation {
   }
 
   //request all data for a certain year
-  yearApi = (request) => {
-    this.yearController = abortAndRenew(this.yearController);
-
-    Axios.get(request, { signal: this.yearController.signal })
-      .then((res) => {
+  yearApi = (request:string):void => {
+    const controller = (this.yearController = abortAndRenew(this.yearController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) =>
+      {
         const year_data = res.data.data;
         if (this.state.play === 0) {
-          this.setState({ yearData: [...year_data], useArray: 3 });
+          this.setState({ yearData: year_data, useArray: 3 });
         } else {
-          this.setState({ yearData: [...year_data] });
+          this.setState({ yearData: year_data});
         }
       })
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
+      .catch((error: unknown) => {
+        if (isCanceledAxiosError(error)) return;
         console.error("yearApi failed:", error);
       });
   };
 
   /*** get the value of every coordinate at a specific state and year ***/
-  doYearHits(state, year) {
+  doYearHits(state: number, year: number): void {
     /* Filter and do db hit here */
     if (year >= 1920 && year <= 2100) {
       let intermediate = "";
@@ -611,13 +645,14 @@ class EachAlone extends Simulation {
         intermediate = dbUrl.concat("seaiceavg/year/");
       }
       const request = intermediate.concat(year.toString(10));
+      console.log(request);
       this.yearApi(request.concat(".txt"));
     }
   }
 
   /*** changes the text of lat textbox from input
     TODO: Use submit button instead ***/
-  onChangeLat = (event) => {
+  onChangeLat = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const newval = event.target.value;
     if (isNumeric(newval)) {
       const parsedval = parseInt(newval);
@@ -637,7 +672,7 @@ class EachAlone extends Simulation {
   };
 
   /*** changes the text of lon textbox from input ***/
-  onChangeLon = (event) => {
+  onChangeLon = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const newval = event.target.value;
     if (isNumeric(newval)) {
       const parsedval = parseInt(newval);
@@ -657,7 +692,7 @@ class EachAlone extends Simulation {
   };
 
   /*** Triggered by closest city dropdown ***/
-  changeToCity = (event) => {
+  changeToCity = (event: React.ChangeEvent<HTMLSelectElement>):void => {
     const city = event.target.value;
     const cityinfo = getInfo(city);
     const lat = cityinfo.latitude;
@@ -679,67 +714,63 @@ class EachAlone extends Simulation {
 
   /*** request all years for a specific coordinate, using avg table
     TODO: Add more error handling ***/
-  coordApi = (request) => {
-    this.coordControllerAvg = abortAndRenew(this.coordControllerAvg);
-
-    Axios.get(request, { signal: this.coordControllerAvg.signal })
+  coordApi = (request: string): void => {
+    const controller = (this.coordControllerAvg = abortAndRenew(this.coordControllerAvg));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
       .then((res) => {
         const coord_data = res.data.data;
-        this.setState({ coordData: [...coord_data] }, this._decWaiting);
+        this.setState({ coordData: coord_data }, this._decWaiting);
 
         if (this.state.state === 0) this.setPrecipNotes(coord_data);
         else if (this.state.state === 1) this.setTempNotes(coord_data);
         else this.setIceNotes(coord_data);
       })
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
+      .catch((error: unknown) => {
+        if (isCanceledAxiosError(error)) return;
         console.error("coordApi failed:", error);
       });
   };
 
   /*** request all years for a specific coordinate, using 001 table ***/
-  coordApi1 = (request) => {
-    this.coordController1Avg = abortAndRenew(this.coordController1Avg);
-
-    Axios.get(request, { signal: this.coordController1Avg.signal })
+  coordApi1 = (request: string): void =>
+  {
+    const controller = (this.coordController1Avg = abortAndRenew(this.coordController1Avg));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
       .then((res) => {
         const coord_data = res.data.data;
-        this.setState({ coordData1: [...coord_data] }, this._decWaiting);
+        this.setState({ coordData1: coord_data }, this._decWaiting);
 
         if (this.state.state === 0) this.setPrecipNotes1(coord_data);
         else if (this.state.state === 1) this.setTempNotes1(coord_data);
         else this.setIceNotes1(coord_data);
       })
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
+      .catch((error: unknown) => {
+        if (isCanceledAxiosError(error)) return;
         console.error("coordApi1 failed:", error);
       });
   };
 
   /*** request all years for a specific coordinate, using 002 table ***/
-  coordApi2 = (request) => {
-    this.coordController2Avg = abortAndRenew(this.coordController2Avg);
-
-    Axios.get(request, { signal: this.coordController2Avg.signal })
+  coordApi2 = (request: string): void =>
+  {
+    const controller = (this.coordController2Avg = abortAndRenew(this.coordController2Avg));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
       .then((res) => {
         const coord_data = res.data.data;
-        this.setState({ coordData2: [...coord_data] }, this._decWaiting);
+        this.setState({ coordData2: coord_data }, this._decWaiting);
 
         if (this.state.state === 0) this.setPrecipNotes2(coord_data);
         else if (this.state.state === 1) this.setTempNotes2(coord_data);
         else this.setIceNotes2(coord_data);
       })
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
+      .catch((error: unknown) => {
+        if (isCanceledAxiosError(error)) return;
         console.error("coordApi2 failed:", error);
       });
   };
 
   /*** Get the value of every year of a coords lifespan ***/
-  doCoordHits(state, lat, lon) {
+  doCoordHits(state: number, lat: number, lon: number): void {
     const closestcity = getClosestCity(lat, lon);
     const { dbX, dbY } = this.getDBCoords();
     this.setState({
@@ -750,7 +781,10 @@ class EachAlone extends Simulation {
 
     /* Filter and do db hit here */
     if (dbX <= 360 && dbX >= 1 && dbY <= 180 && dbY >= 1) {
-      let intermediate, intermediate1, intermediate2;
+      let intermediate = "";
+      let intermediate1 = "";
+      let intermediate2 = "";
+      
       if (state === 0) {
         intermediate = dbUrl.concat("precipavg/coord/");
         intermediate1 = dbUrl.concat("precip001/coord/");
@@ -792,7 +826,7 @@ class EachAlone extends Simulation {
   }
 
   /*** Start transport when mousedown on model keys ***/
-  setupTransport = async (e) => {
+  setupTransport = async (e: React.PointerEvent<HTMLDivElement>): Promise<void> => {
     //	transport().start('+0');
     //	this.testMusic(e);
     // comment out above and do below on 4-25-2025 after web errors
@@ -802,14 +836,14 @@ class EachAlone extends Simulation {
       console.log("AudioContext started");
       transport().start("+0");
       this.testMusic(e);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error starting AudioContext:", error);
     }
   };
 
   /*** Determines what value is being pressed on model key and play note
     could be refined but unnecessary ***/
-  testMusic = (e) => {
+  testMusic = (e: React.PointerEvent<HTMLDivElement>):void => {
     if (
       this.state.notePlaying === 0 &&
       e.buttons === 1 &&
@@ -831,7 +865,7 @@ class EachAlone extends Simulation {
       const x = e.pageX - keyLeft;
       const rangeX = keyRight - keyLeft;
       const percX = x / rangeX;
-      let playVal;
+      let playVal = 0;
       if (this.state.state === 0) {
         playVal = (percX - 0.175) * 500 + 100;
       } else if (this.state.state === 1) {
@@ -847,7 +881,7 @@ class EachAlone extends Simulation {
   };
 
   /*** Sets notes for avg data ***/
-  noteHelper = (ind) => {
+  noteHelper = (ind: number): string[] => {
     let notes = [];
     if (this.state.state === 0) {
       notes = this.getPrecipNotes(ind);
@@ -860,7 +894,7 @@ class EachAlone extends Simulation {
   };
 
   /*** Sets notes for 001 data ***/
-  noteHelper1 = (ind) => {
+  noteHelper1 = (ind: number): string[] => {
     let notes = [];
     if (this.state.state === 0) {
       notes = this.getPrecipNotes1(ind);
@@ -873,7 +907,7 @@ class EachAlone extends Simulation {
   };
 
   /*** Sets notes for 002 data ***/
-  noteHelper2 = (ind) => {
+  noteHelper2 = (ind: number): string[] => {
     let notes = [];
     if (this.state.state === 0) {
       notes = this.getPrecipNotes2(ind);
@@ -886,7 +920,7 @@ class EachAlone extends Simulation {
   };
 
   /*** Start music ***/
-  playMusic = () => {
+  playMusic = ():void => {
     if (this.state.waiting > 0) {
       //console.log('waiting');
       return;
@@ -917,7 +951,7 @@ class EachAlone extends Simulation {
     const notePattern = new Tone.Pattern((time, note) => {
       synth.triggerAttackRelease(note, "16n", time);
       // bind incrementing
-      Tone.Draw.schedule(() => {
+      Tone.getDraw().schedule(() => {
         this.incrementIndex();
       }, time);
     }, notes);
@@ -957,19 +991,21 @@ class EachAlone extends Simulation {
             transport().start("+0");
           });
         })
-        .catch((error) => console.error(error));
+        .catch((error: unknown) => {
+          console.error(error);
+        });
     }
   };
 
   /*** runs when year slider changes ***/
-  updateYearVals = () => {
+  updateYearVals = ():void => {
     if (this.state.play === 0) {
       this.doYearHits(this.state.state, this.state.index + 1920);
     }
   };
 
   /*** runs on initial render ***/
-  componentDidMount = () => {
+  componentDidMount = ():void => {
     this.co2Api();
 
     this.setState({
@@ -990,7 +1026,7 @@ class EachAlone extends Simulation {
     if (isBrowser) {
       window.addEventListener("resize", this.updateDimensions);
     }
-    window.addEventListener("orientationchange", this.rotateDimensions);
+    window.addEventListener("orientationchange", this.handleOrientationChange);
 
     /* fetch data and setup window size */
     this.doCoordHits(0, 0, 0);
@@ -1001,7 +1037,7 @@ class EachAlone extends Simulation {
 
   /*** triggers sound for new lat, lon, or city picked
    *** does not include model location selection ***/
-  triggerNotes = () => {
+  triggerNotes = ():void => {
     let coord_val;
     const { dbX, dbY } = this.getDBCoords();
     const coord_index = this.getDBIndex(dbX, dbY);
@@ -1015,9 +1051,12 @@ class EachAlone extends Simulation {
     }
     this.setupGraph();
   };
+  private handleOrientationChange = (): void => {
+    void this.rotateDimensions();
+  };
 
   /*** runs on page destruction ***/
-  componentWillUnmount = () => {
+  componentWillUnmount = ():void => {
     try {
       // stop scheduled events + reset timeline
       transport().stop();
@@ -1036,16 +1075,20 @@ class EachAlone extends Simulation {
     this.coordController1Avg?.abort();
     this.coordController2Avg?.abort();
 
-    PubSub.unsubscribe(this.state.token);
+    //PubSub.unsubscribe(this.state.token);
+    (PubSub as unknown as { unsubscribe: (token: string) => void }).unsubscribe(this.state.token);
     if (isBrowser) {
       window.removeEventListener("resize", this.updateDimensions);
     }
-    window.removeEventListener("orientationchange", this.rotateDimensions);
+    window.removeEventListener("orientationchange", this.handleOrientationChange);
   };
 
-  componentDidUpdate(prevProps, prevState) {
+  componentDidUpdate(
+    prevProps: Readonly<this["props"]>,
+    prevState: Readonly<typeof this.state>,
+  ): void {
     // If the canvas ref isn't ready, bail safely.
-    if (!this.graphRef?.current) return;
+    if (!this.graphRef.current) return;
 
     // Any change that should redraw the graph.
     const shouldRedraw =
@@ -1071,7 +1114,14 @@ class EachAlone extends Simulation {
   }
 
   /*** Picks where to put crosshairs ***/
-  getLocations = () => {
+  getLocations = (): {
+    location1: React.CSSProperties;
+    location2: React.CSSProperties;
+    location3: React.CSSProperties;
+    location4: React.CSSProperties;
+    location5: React.CSSProperties;
+    location6: React.CSSProperties;
+  } => {
     /* A bunch of variables used to calculate crosshair position */
     const fsize = 12;
     const modelSplit = Math.floor(
@@ -1261,7 +1311,7 @@ class EachAlone extends Simulation {
   };
 
   /*** Go to about page ***/
-  openAbout = () => {
+  openAbout = ():void => {
     const { navigation } = this.props;
     if (this.state.play === 1) {
       this.stopMusic(true);
@@ -1270,7 +1320,7 @@ class EachAlone extends Simulation {
   };
 
   /*** runs on state update ***/
-  render() {
+  render(): React.JSX.Element {
     const { location1, location2, location3, location4, location5, location6 } =
       this.getLocations();
 
@@ -1369,14 +1419,16 @@ class EachAlone extends Simulation {
       float: "left",
     } satisfies React.CSSProperties;
 
-    const h = dataBlockStyle.height ?? 0;
-    const heightNum = typeof h === "number" ? h : parseFloat(h) || 0;   
+    const dbs = dataBlockStyle;
+    const h = dbs.height ?? 0;
+    const heightNum = typeof h === "number" ? h : parseFloat(String(h)) || 0;
+
     const smallDataStyle: React.CSSProperties = {
       height: Math.floor((heightNum * 9) / 10),
-      width: dataBlockStyle.width,
-      overflow: dataBlockStyle.overflow,
-      float: dataBlockStyle.float,
-      textAlign: dataBlockStyle.textAlign,
+      width: dbs.width,
+      overflow: dbs.overflow,
+      float: dbs.float,
+      textAlign: dbs.textAlign,
     } satisfies React.CSSProperties;
 
     /*** Return the page ***/
@@ -1403,7 +1455,7 @@ class EachAlone extends Simulation {
               <div style={dataBlockStyle}>
                 <button
                   style={thirdControlStyle}
-                  onClick={() => this.setPrecip()}
+                  onClick={this.setPrecip}
                 >
                   <img
                     style={thirdControlStyle}
@@ -1414,7 +1466,7 @@ class EachAlone extends Simulation {
 
                 <button
                   style={thirdControlStyle}
-                  onClick={() => this.setTemp()}
+                  onClick={this.setTemp}
                 >
                   <img
                     style={thirdControlStyle}
@@ -1423,7 +1475,7 @@ class EachAlone extends Simulation {
                   />
                 </button>
 
-                <button style={thirdControlStyle} onClick={() => this.setIce()}>
+                <button style={thirdControlStyle} onClick={this.setIce}>
                   <img
                     style={thirdControlStyle}
                     alt="select sea ice"
@@ -1437,8 +1489,8 @@ class EachAlone extends Simulation {
                   style={playSplitDivStyle}
                   onClick={
                     this.state.play
-                      ? () => this.stopMusic(false)
-                      : () => this.playMusic()
+                      ? ():void => { this.stopMusic(false) }
+                      : ():void => {this.playMusic()}
                   }
                 >
                   <img
@@ -1606,7 +1658,7 @@ class EachAlone extends Simulation {
                 <div style={quarterControlStyle} />
                 <button
                   style={quarterControlStyle}
-                  onClick={() => this.openAbout()}
+                  onClick={this.openAbout}
                 >
                   <span style={aboutButton}>FAQ</span>
                 </button>
@@ -1616,7 +1668,7 @@ class EachAlone extends Simulation {
               <div style={keyContainer}>
                 <img style={keyContainer} alt="graph key" src={graphKey} />
               </div>
-              <button style={dataBlockStyle} onClick={() => this.callHome()}>
+              <button style={dataBlockStyle} onClick={this.callHome}>
                 <img
                   style={dataBlockStyle}
                   alt="home button"
@@ -1667,7 +1719,7 @@ class EachAlone extends Simulation {
 
               <div
                 style={dataThirdStyle}
-                onPointerDown={this.setupTransport}
+                onPointerDown={this.setupMapTransport}
                 onPointerMove={this.testMusic}
                 onPointerUp={this.killTransport}
               >
@@ -1758,7 +1810,9 @@ class EachAlone extends Simulation {
 }
 
 /*** class wrapper for naviagion functionality ***/
-export default function EachAloneWrapper(props) {
+type EachAloneWrapperProps = Record<string, unknown>;
+
+export default function EachAloneWrapper( props: EachAloneWrapperProps): React.JSX.Element {
   const { navigation, route } = useNavigationShim();
 
   return (

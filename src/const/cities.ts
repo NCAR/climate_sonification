@@ -119,6 +119,6 @@ export function getClosestCity(lat: number, lon: number): string | undefined {
 }
 
 
-export function getInfo(city: string): City | undefined {
+export function getInfo(city: string): City {
   return cities.find((c) => c.city === city);
 }

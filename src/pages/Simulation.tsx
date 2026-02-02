@@ -4,7 +4,7 @@ import { playUrl, dbUrl } from "../const/url.js";
 import Axios from "axios";
 import { getScale } from "../const/scales.js";
 import { timer } from "../sim/timer";
-
+import type { Navigation, Route } from "../routing/useNavigationShim";
 import
   {
     calcValByIndex,
@@ -12,7 +12,8 @@ import
     calcValByCoord,
     calcDBCoords,
     calcDBIndex,
-    AvgArr
+    AvgArr,
+    AvgRow
   } from "../sim/dataMath";
 
 import
@@ -32,8 +33,36 @@ type CommonStyles = {
   controlHeight: number;
   controlWidth: number;
   containerStyle: React.CSSProperties;
-  // allow additional style/values without enumerating every key:
-  [key: string]: unknown;
+  controlDivStyle: React.CSSProperties;
+  controlContainerStyle: React.CSSProperties;
+  instructionTextStyle: React.CSSProperties;
+  paragraphTextStyle: React.CSSProperties;
+  dataBlockStyle: React.CSSProperties;
+  thirdControlStyle:React.CSSProperties;
+  controlBlockStyle:React.CSSProperties;
+  playSplitDivStyle:React.CSSProperties;
+  quarterControlStyle:React.CSSProperties;
+  prestoHighlight: React.CSSProperties;
+  moderatoHighlight:React.CSSProperties;
+  allegroHighlight: React.CSSProperties;
+  inputControlStyle:React.CSSProperties;
+  labelControlStyle: React.CSSProperties;
+  bigLabelControlStyle:React.CSSProperties;
+  smallLabelTextStyle:React.CSSProperties;
+  dropdownControlStyle:React.CSSProperties;
+  halfControlStyle:React.CSSProperties;
+  aboutButton:React.CSSProperties;
+  keyContainer:React.CSSProperties;
+  skinnyImgStyle:React.CSSProperties;
+  skinnyDivStyle: React.CSSProperties;
+  largeDivStyle:React.CSSProperties;
+  graphBufferStyle:React.CSSProperties;
+  dataThirdStyle: React.CSSProperties;
+  imageKeyStyle:React.CSSProperties;
+  graphStyle: React.CSSProperties;
+  sliderStyle:React.CSSProperties;
+  sliderDivStyle: React.CSSProperties;
+  timelineStyle:React.CSSProperties;
 };
 
 type SynthType = Parameters<typeof createSynth>[0];
@@ -42,8 +71,9 @@ type ScaleMode = "maj" | "harm" | "pdor" | "pdom" | "dharm";
 type ToneTransport = ReturnType<typeof Tone.getTransport>;
 const transport = (): ToneTransport => Tone.getTransport();
 
-type SimulationProps = {
-  navigation: { navigate: (route: string) => void };
+export type SimulationProps = {
+  navigation: Navigation;
+  route: Route;
 };
 
 type Co2Row = { co2_val: number | string };
@@ -95,12 +125,12 @@ type SimulationState = {
   pianoNotes: string[];
   closestCity: string;
 
-  yearData?: unknown[];
-  coordData?: unknown[];
-  coordData1?: unknown[];
-  coordData2?: unknown[];
-  state?: number;  
-  modelStr?: string;
+  yearData: AvgArr;
+  coordData: AvgArr;
+  coordData1: AvgArr;
+  coordData2: AvgArr;
+  state: NoteType;  
+  modelStr: string;
 
   precipAvg?: number;
   tempAvg?: number;
@@ -169,7 +199,13 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
       tempNotes2: [],
       iceNotes2: [],
       pianoNotes: [],
+      yearData: [{} as AvgRow],
+      coordData: [{} as AvgRow],
+      coordData1: [{} as AvgRow],
+      coordData2: [{} as AvgRow],
       closestCity: "",
+      modelStr:"",
+      state:0
     };
 
     //this.incrementIndex = this.incrementIndex.bind(this);
@@ -1093,7 +1129,7 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
         height: Math.floor((3 * controlHeight) / 40),
         width: Math.floor((controlWidth * this.state.CONTROLSPLIT) / 3),
         float: "left",
-      border: "none",
+        border: "none",
       };
 
       dropdownControlStyle = {
