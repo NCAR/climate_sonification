@@ -1,5 +1,11 @@
-const cities = [
-  //North America
+export type City = {
+  city: string;
+  latitude: number;
+  longitude: number;
+};
+
+const cities: City[] = [
+  // North America
   { city: "Anchorage", latitude: 61, longitude: -150 },
   { city: "Austin", latitude: 30, longitude: -98 },
   { city: "Calgary", latitude: 51, longitude: -114 },
@@ -15,7 +21,7 @@ const cities = [
   { city: "Vancouver", latitude: 49, longitude: -123 },
   { city: "Winnipeg", latitude: 50, longitude: -97 },
 
-  //Asia
+  // Asia
   { city: "Bangkok", latitude: 14, longitude: 101 },
   { city: "Beijing", latitude: 41, longitude: 116 },
   { city: "Bengaluru", latitude: 13, longitude: 78 },
@@ -28,13 +34,13 @@ const cities = [
   { city: "Singapore", latitude: 1, longitude: 104 },
   { city: "Tokyo", latitude: 36, longitude: 140 },
 
-  //Oceania
+  // Oceania
   { city: "Auckland", latitude: -37, longitude: 175 },
   { city: "Perth", latitude: -32, longitude: 116 },
   { city: "Port Moresby", latitude: -10, longitude: 147 },
   { city: "Sydney", latitude: -34, longitude: 151 },
 
-  //South America
+  // South America
   { city: "Asuncion", latitude: -25, longitude: -58 },
   { city: "Bogota", latitude: 5, longitude: -74 },
   { city: "Buenos Aires", latitude: -35, longitude: -58 },
@@ -46,7 +52,7 @@ const cities = [
   { city: "Punta Arenas", latitude: -53, longitude: -71 },
   { city: "Quito", latitude: 0, longitude: -78 },
 
-  //Africa
+  // Africa
   { city: "Antananarivo", latitude: -19, longitude: 48 },
   { city: "Cairo", latitude: 30, longitude: 31 },
   { city: "Cape Town", latitude: -34, longitude: 18 },
@@ -57,7 +63,7 @@ const cities = [
   { city: "Nairobi", latitude: -1, longitude: 37 },
   { city: "Tunis", latitude: 37, longitude: 10 },
 
-  //Europe
+  // Europe
   { city: "Amsterdam", latitude: 52, longitude: 5 },
   { city: "Berlin", latitude: 53, longitude: 13 },
   { city: "Budapest", latitude: 47, longitude: 19 },
@@ -76,41 +82,43 @@ const cities = [
   { city: "Warsaw", latitude: 52, longitude: 21 },
 ];
 
-export function getClosestCity(lat, lon) {
-  var closestdist = 10000000;
-  var thislat, thislon, dist, xdiff, ydiff, closestcity, lon1, lon2;
-  for (var i = 0; i < cities.length; i++) {
-    thislat = cities[i].latitude;
-    thislon = cities[i].longitude;
+export function getClosestCity(lat: number, lon: number): string | undefined {
+  let closestdist = Number.MAX_VALUE;
+  let closestcity: string | undefined;
+
+  for (const city of cities) {
+    const thislat = city.latitude;
+    let thislon = city.longitude;
+
     if (lon > 0 && thislon < 0) {
-      lon1 = thislon;
-      lon2 = thislon + 360;
+      const lon1 = thislon;
+      const lon2 = thislon + 360;
       if (Math.abs(lon1 - lon) > Math.abs(lon2 - lon)) {
         thislon += 360;
       }
     }
     if (lon < 0 && thislon > 0) {
-      lon1 = thislon;
-      lon2 = thislon + 360;
+      const lon1 = thislon;
+      const lon2 = thislon + 360;
       if (Math.abs(lon1 - lon) > Math.abs(lon2 - lon)) {
-        lon += 360;
+        thislon += 360;
       }
     }
-    xdiff = Math.abs(thislat - lat);
-    ydiff = Math.abs(thislon - lon);
-    dist = Math.sqrt(Math.pow(xdiff, 2) + Math.pow(ydiff, 2));
+
+    const xdiff = Math.abs(thislat - lat);
+    const ydiff = Math.abs(thislon - lon);
+    const dist = Math.sqrt(xdiff ** 2 + ydiff ** 2);
+
     if (dist < closestdist) {
       closestdist = dist;
-      closestcity = cities[i].city;
+      closestcity = city.city;
     }
   }
+
   return closestcity;
 }
 
-export function getInfo(city) {
-  for (var i = 0; i < cities.length; i++) {
-    if (cities[i].city === city) {
-      return cities[i];
-    }
-  }
+
+export function getInfo(city: string): City | undefined {
+  return cities.find((c) => c.city === city);
 }

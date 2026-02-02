@@ -1,11 +1,9 @@
 import { prefetchImage } from "../utils/prefetchImage.js";
-
-import React from "react";
-import { useNavigationShim } from "../routing/useNavigationShim.js";
+import { useNavigationShim } from "../routing/useNavigationShim";
 import Axios from "axios";
 import PubSub from "pubsub-js";
 import { isBrowser } from "react-device-detect";
-import { Simulation } from "./Simulation.jsx";
+import { Simulation } from "./Simulation";
 import * as Tone from "tone";
 import { getClosestCity, getInfo } from "../const/cities.js";
 import { RED, YELLOW, GREEN, BLUE } from "../const/color.js";
@@ -39,6 +37,7 @@ import {
 function isNumeric(value) {
   return /^-?\d+$/.test(value);
 }
+const transport = () => Tone.getTransport();
 
 
 
@@ -47,19 +46,22 @@ function isNumeric(value) {
 class EachAlone extends Simulation {
   constructor(props) {
     super(props);
-    this.state.yearData = [0];
-    this.state.coordData = [0];
-    this.state.coordData1 = [0];
-    this.state.coordData2 = [0];
-    this.state.state = 0;
-    this.state.modelStr = "/precip/precip_ens";
-    this.state.precipSrc = precipActive;
-    this.state.tempSrc = tempInactive;
-    this.state.iceSrc = iceInactive;
-    this.state.keySrc = precipKey;
-    this.state.precipBool = 1;
-    this.state.tempBool = 0;
-    this.state.iceBool = 0;
+    this.state = {
+      ...this.state,
+      yearData: [0],
+      coordData: [0],
+      coordData1: [0],
+      coordData2: [0],
+      state: 0,
+      modelStr: "/precip/precip_ens",
+      precipSrc: precipActive,
+      tempSrc: tempInactive,
+      iceSrc: iceInactive,
+      keySrc: precipKey,
+      precipBool: true,
+      tempBool: false,
+      iceBool: false,
+    };
   }
   yearController = null;
   coordControllerAvg = null;
@@ -88,7 +90,7 @@ class EachAlone extends Simulation {
   };
 
   /*** Run this when stop is pressed or when index === 180 ***/
-  stopMusic = (terminate) => {
+  stopMusic = (terminate?:boolean) => {
     //console.log('stopping');
 
     this.setState(
@@ -97,9 +99,9 @@ class EachAlone extends Simulation {
         playButton: playUrl,
       },
       function () {
-        Tone.Transport.stop();
-        Tone.Transport.cancel(0);
-        if (terminate === 0) {
+        transport().stop();
+        transport().cancel(0);
+        if (terminate === false) {
           this.doYearHits(this.state.state, this.state.index + 1920);
         }
       },
@@ -122,7 +124,7 @@ class EachAlone extends Simulation {
     if (this.state.play === 0) {
       this.doYearHits(0, this.state.index + 1920);
     } else {
-      this.stopMusic(0);
+      this.stopMusic(false);
     }
     this.doCoordHits(0, this.state.latitude, this.state.longitude);
   };
@@ -136,9 +138,9 @@ class EachAlone extends Simulation {
       tempSrc: tempActive,
       iceSrc: iceInactive,
       keySrc: tempKey,
-      tempBool: 1,
+      tempBool: true,
     });
-    if (this.state.tempBool === 0) {
+    if (this.state.tempBool === false) {
       tempImgs.forEach((picture) => {
         prefetchImage(picture).catch(() => {});
       });
@@ -147,7 +149,7 @@ class EachAlone extends Simulation {
     if (this.state.play === 0) {
       this.doYearHits(1, this.state.index + 1920);
     } else {
-      this.stopMusic(0);
+      this.stopMusic(false);
     }
     this.doCoordHits(1, this.state.latitude, this.state.longitude);
   };
@@ -161,9 +163,9 @@ class EachAlone extends Simulation {
       tempSrc: tempInactive,
       iceSrc: iceActive,
       keySrc: iceKey,
-      iceBool: 1,
+      iceBool: true,
     });
-    if (this.state.iceBool === 0) {
+    if (this.state.iceBool === false) {
       iceImgs.forEach((picture) => {
         prefetchImage(picture).catch(() => {});
       });
@@ -172,16 +174,16 @@ class EachAlone extends Simulation {
     if (this.state.play === 0) {
       this.doYearHits(2, this.state.index + 1920);
     } else {
-      this.stopMusic(0);
+      this.stopMusic(false);
     }
     this.doCoordHits(2, this.state.latitude, this.state.longitude);
   };
 
   /*** Queries db upon mouse/finger release from map, only if simulation stopped ***/
-  onPointerUp = (e) => {
+  onPointerUp = () => {
     //console.log('kill map transport on pointer up');
     //console.log('play state : '+ this.state.play);
-    this.killMapTransport(e);
+    this.killMapTransport();
     if (this.state.play === 0) {
       //console.log('do coord hits because play state was 0');
       this.doCoordHits(
@@ -194,8 +196,8 @@ class EachAlone extends Simulation {
 
   /*** called when the window is resized ***/
   updateDimensions = () => {
-    var newheight = window.innerHeight;
-    var newwidth = window.innerWidth;
+    const newheight = window.innerHeight;
+    const newwidth = window.innerWidth;
 
     if (window.innerHeight < window.innerWidth) {
       this.setState({
@@ -241,33 +243,33 @@ class EachAlone extends Simulation {
     }
     //console.log('play state: '+this.state.play);
     if (this.state.play === 1) {
-      this.stopMusic(0);
+      this.stopMusic(false);
     }
     if (this.state.notePlaying !== 0) {
       //console.log('note playing !== 0');
       return;
     }
     /* A bunch of variables used to calculate mouse position */
-    var modelSplit = Math.floor(
+    const modelSplit = Math.floor(
       (this.state.pageBottom * this.state.MAPVERTDIV) / 2,
     );
-    var modelLeft =
+    const modelLeft =
       Math.floor(this.state.pageRight * (1 - this.state.MAPDIV)) +
       this.state.PADDING / 2;
-    var modelDiv = Math.floor((this.state.pageRight * this.state.MAPDIV) / 3);
-    var modelTop = this.state.PADDING / 2;
+    const modelDiv = Math.floor((this.state.pageRight * this.state.MAPDIV) / 3);
+    let modelTop = this.state.PADDING / 2;
     if (this.state.pageBottom > this.state.pageRight) {
       modelTop =
         this.state.pageBottom * this.state.CONTROLVERTDIV +
         this.state.PADDING / 2;
     }
-    var x = Math.floor(e.pageX - modelLeft);
-    var y = Math.floor(e.pageY - modelTop);
+    const x = Math.floor(e.pageX - modelLeft);
+    const y = Math.floor(e.pageY - modelTop);
 
-    var latSave = 0;
-    var lonSave = 0;
-    var centerX = 0;
-    var centerY = 0;
+    let latSave = 0;
+    let lonSave = 0;
+    let centerX = 0;
+    let centerY = 0;
 
     //box 1,1
     if (x <= modelDiv && y <= modelSplit) {
@@ -308,19 +310,19 @@ class EachAlone extends Simulation {
 
     //sea ice uses polar coords (this is quite accurate, but could be incorrect on strange display sizes)
     else if (this.state.state === 2) {
-      var dx = x - centerX;
+      let dx = x - centerX;
       dx *= modelSplit / ((modelDiv * 3) / 4);
-      var dy = centerY - y;
-      var r = Math.sqrt(dx ** 2 + dy ** 2);
-      var theta = Math.atan(dy / dx);
+      const dy = centerY - y;
+      const r = Math.sqrt(dx ** 2 + dy ** 2);
+      let theta = Math.atan(dy / dx);
       theta += Math.PI / 2;
       if (dx > 0) {
         theta += Math.PI;
       }
       theta /= Math.PI;
       theta /= 2;
-      var newlon = Math.floor(theta * 360 - 180);
-      var newlat = r / modelSplit;
+      const newlon = Math.floor(theta * 360 - 180);
+      let newlat = r / modelSplit;
       newlat *= 56;
       lonSave = newlon;
       latSave = 90 - newlat;
@@ -338,27 +340,23 @@ class EachAlone extends Simulation {
       },
       function () {
         //get new data values and play sound
-        var { dbX, dbY } = this.getDBCoords();
-        var coord_index = this.getDBIndex(dbX, dbY);
+        const { dbX, dbY } = this.getDBCoords();
+        const coord_index = this.getDBIndex(dbX, dbY);
 
         if (this.state.yearData.length >= coord_index) {
-          var val0 = this.getValByCoord(this.state.yearData, coord_index);
+          const val0 = this.getValByCoord(this.state.yearData, coord_index);
           //console.log('calling playnotebyval');
           //console.log('play state: '+this.state.play);
 
           this.playNoteByVal(
             this.state.state,
-            val0,
-            this.state.index,
-            this.state.coordData,
+            val0
           );
           const co2_val = this._getCo2Val(this.state.index);
           if (co2_val != null) {
             this.playNoteByVal(
               3,
-              co2_val,
-              this.state.index,
-              this.state.co2data,
+              co2_val
             );
           }
         }
@@ -371,14 +369,14 @@ class EachAlone extends Simulation {
     if (this.state.index > 0 && this.state.index <= 180) {
       const ctx = this.graphRef.current.getContext("2d");
 
-      var { step, avg, co2_median, co2_range, co2_avg } = this.getGraphDims();
+      const { step, avg, co2_median, co2_range, co2_avg } = this.getGraphDims();
 
-      var prev_val = 0;
-      var coord_val = 0;
+      let prev_val = 0;
+      let coord_val = 0;
 
       //draw co2 line
       ctx.beginPath();
-      for (var co2Ind = 1; co2Ind <= this.state.index; co2Ind++) {
+      for (let co2Ind = 1; co2Ind <= this.state.index; co2Ind++) {
         prev_val = this.state.co2data[co2Ind - 1].co2_val;
         coord_val = this.state.co2data[co2Ind].co2_val;
 
@@ -397,12 +395,12 @@ class EachAlone extends Simulation {
 
       //draw precip lines
       if (this.state.state === 0) {
-        var { precip_median, precip_range } = this.getPrecipGraphVars(
+        const { precip_median, precip_range } = this.getPrecipGraphVars(
           this.state.coordData,
         );
 
         ctx.beginPath();
-        for (var precipInd = 0; precipInd <= this.state.index; precipInd++) {
+        for (let precipInd = 0; precipInd <= this.state.index; precipInd++) {
           prev_val = this.getValByIndex(this.state.coordData, precipInd - 1);
           coord_val = this.getValByIndex(this.state.coordData, precipInd);
 
@@ -420,7 +418,7 @@ class EachAlone extends Simulation {
         ctx.stroke();
 
         ctx.beginPath();
-        for (precipInd = 0; precipInd <= this.state.index; precipInd++) {
+        for (let precipInd = 0; precipInd <= this.state.index; precipInd++) {
           prev_val = this.getValByIndex(this.state.coordData1, precipInd - 1);
           coord_val = this.getValByIndex(this.state.coordData1, precipInd);
 
@@ -438,7 +436,7 @@ class EachAlone extends Simulation {
         ctx.stroke();
 
         ctx.beginPath();
-        for (precipInd = 0; precipInd <= this.state.index; precipInd++) {
+        for (let precipInd = 0; precipInd <= this.state.index; precipInd++) {
           prev_val = this.getValByIndex(this.state.coordData2, precipInd - 1);
           coord_val = this.getValByIndex(this.state.coordData2, precipInd);
 
@@ -458,13 +456,13 @@ class EachAlone extends Simulation {
 
       //draw temp lines
       if (this.state.state === 1) {
-        var { temp_median, temp_range, temp_avg } = this.getTempGraphVars(
+        const { temp_median, temp_range, temp_avg } = this.getTempGraphVars(
           this.state.coordData,
           avg,
         );
 
         ctx.beginPath();
-        for (var tempInd = 0; tempInd <= this.state.index; tempInd++) {
+        for (let tempInd = 0; tempInd <= this.state.index; tempInd++) {
           prev_val = this.getValByIndex(this.state.coordData, tempInd - 1);
           coord_val = this.getValByIndex(this.state.coordData, tempInd);
 
@@ -482,7 +480,7 @@ class EachAlone extends Simulation {
         ctx.stroke();
 
         ctx.beginPath();
-        for (tempInd = 0; tempInd <= this.state.index; tempInd++) {
+        for (let tempInd = 0; tempInd <= this.state.index; tempInd++) {
           prev_val = this.getValByIndex(this.state.coordData1, tempInd - 1);
           coord_val = this.getValByIndex(this.state.coordData1, tempInd);
 
@@ -500,7 +498,7 @@ class EachAlone extends Simulation {
         ctx.stroke();
 
         ctx.beginPath();
-        for (tempInd = 0; tempInd <= this.state.index; tempInd++) {
+        for (let tempInd = 0; tempInd <= this.state.index; tempInd++) {
           prev_val = this.getValByIndex(this.state.coordData2, tempInd - 1);
           coord_val = this.getValByIndex(this.state.coordData2, tempInd);
 
@@ -520,11 +518,11 @@ class EachAlone extends Simulation {
 
       //draw sea ice lines
       if (this.state.state === 2) {
-        var ice_max = 1;
-        var ice_avg = Math.floor(avg * 0.5);
+        const ice_max = 1;
+        const ice_avg = Math.floor(avg * 0.5);
 
         ctx.beginPath();
-        for (var iceInd = 0; iceInd <= this.state.index; iceInd++) {
+        for (let iceInd = 0; iceInd <= this.state.index; iceInd++) {
           prev_val = this.getValByIndex(this.state.coordData, iceInd - 1);
           coord_val = this.getValByIndex(this.state.coordData, iceInd);
 
@@ -542,7 +540,7 @@ class EachAlone extends Simulation {
         ctx.stroke();
 
         ctx.beginPath();
-        for (iceInd = 0; iceInd <= this.state.index; iceInd++) {
+        for (let iceInd = 0; iceInd <= this.state.index; iceInd++) {
           prev_val = this.getValByIndex(this.state.coordData1, iceInd - 1);
           coord_val = this.getValByIndex(this.state.coordData1, iceInd);
 
@@ -560,7 +558,7 @@ class EachAlone extends Simulation {
         ctx.stroke();
 
         ctx.beginPath();
-        for (iceInd = 0; iceInd <= this.state.index; iceInd++) {
+        for (let iceInd = 0; iceInd <= this.state.index; iceInd++) {
           prev_val = this.getValByIndex(this.state.coordData2, iceInd - 1);
           coord_val = this.getValByIndex(this.state.coordData2, iceInd);
 
@@ -604,7 +602,7 @@ class EachAlone extends Simulation {
   doYearHits(state, year) {
     /* Filter and do db hit here */
     if (year >= 1920 && year <= 2100) {
-      var intermediate = "";
+      let intermediate = "";
       if (state === 0) {
         intermediate = dbUrl.concat("precipavg/year/");
       } else if (state === 1) {
@@ -612,7 +610,7 @@ class EachAlone extends Simulation {
       } else if (state === 2) {
         intermediate = dbUrl.concat("seaiceavg/year/");
       }
-      var request = intermediate.concat(year.toString(10));
+      const request = intermediate.concat(year.toString(10));
       this.yearApi(request.concat(".txt"));
     }
   }
@@ -620,9 +618,9 @@ class EachAlone extends Simulation {
   /*** changes the text of lat textbox from input
     TODO: Use submit button instead ***/
   onChangeLat = (event) => {
-    var newval = event.target.value;
+    const newval = event.target.value;
     if (isNumeric(newval)) {
-      var parsedval = parseInt(newval);
+      const parsedval = parseInt(newval);
       if (parsedval >= -90 && parsedval <= 90) {
         this.doCoordHits(this.state.state, parsedval, this.state.longitude);
         this.setState({
@@ -630,9 +628,9 @@ class EachAlone extends Simulation {
           useArray: 0,
         });
         this.setupGraph();
-        this.triggerNotes(parsedval, this.state.longitude);
+        this.triggerNotes();
         if (this.state.play === 1) {
-          this.stopMusic();
+          this.stopMusic(false);
         }
       }
     }
@@ -640,9 +638,9 @@ class EachAlone extends Simulation {
 
   /*** changes the text of lon textbox from input ***/
   onChangeLon = (event) => {
-    var newval = event.target.value;
+    const newval = event.target.value;
     if (isNumeric(newval)) {
-      var parsedval = parseInt(newval);
+      const parsedval = parseInt(newval);
       if (parsedval >= -180 && parsedval <= 180) {
         this.doCoordHits(this.state.state, this.state.latitude, parsedval);
         this.setState({
@@ -650,9 +648,9 @@ class EachAlone extends Simulation {
           useArray: 0,
         });
         this.setupGraph();
-        this.triggerNotes(this.state.latitude, parsedval);
+        this.triggerNotes();
         if (this.state.play === 1) {
-          this.stopMusic();
+          this.stopMusic(false);
         }
       }
     }
@@ -660,10 +658,10 @@ class EachAlone extends Simulation {
 
   /*** Triggered by closest city dropdown ***/
   changeToCity = (event) => {
-    var city = event.target.value;
-    var cityinfo = getInfo(city);
-    var lat = cityinfo.latitude;
-    var lon = cityinfo.longitude;
+    const city = event.target.value;
+    const cityinfo = getInfo(city);
+    const lat = cityinfo.latitude;
+    const lon = cityinfo.longitude;
 
     this.doCoordHits(this.state.state, lat, lon);
     this.setState({
@@ -672,10 +670,10 @@ class EachAlone extends Simulation {
       useArray: 0,
     });
     this.setupGraph();
-    this.triggerNotes(lat, lon);
+    this.triggerNotes();
 
     if (this.state.play === 1) {
-      this.stopMusic();
+      this.stopMusic(false);
     }
   };
 
@@ -742,8 +740,8 @@ class EachAlone extends Simulation {
 
   /*** Get the value of every year of a coords lifespan ***/
   doCoordHits(state, lat, lon) {
-    var closestcity = getClosestCity(lat, lon);
-    var { dbX, dbY } = this.getDBCoords();
+    const closestcity = getClosestCity(lat, lon);
+    const { dbX, dbY } = this.getDBCoords();
     this.setState({
       latitude: Math.floor(lat),
       longitude: Math.floor(lon),
@@ -752,7 +750,7 @@ class EachAlone extends Simulation {
 
     /* Filter and do db hit here */
     if (dbX <= 360 && dbX >= 1 && dbY <= 180 && dbY >= 1) {
-      var intermediate, intermediate1, intermediate2;
+      let intermediate, intermediate1, intermediate2;
       if (state === 0) {
         intermediate = dbUrl.concat("precipavg/coord/");
         intermediate1 = dbUrl.concat("precip001/coord/");
@@ -795,14 +793,14 @@ class EachAlone extends Simulation {
 
   /*** Start transport when mousedown on model keys ***/
   setupTransport = async (e) => {
-    //	Tone.Transport.start('+0');
+    //	transport().start('+0');
     //	this.testMusic(e);
     // comment out above and do below on 4-25-2025 after web errors
     try {
       await Tone.start();
       this.setState({ audioAvailable: true });
       console.log("AudioContext started");
-      Tone.Transport.start("+0");
+      transport().start("+0");
       this.testMusic(e);
     } catch (error) {
       console.error("Error starting AudioContext:", error);
@@ -817,8 +815,8 @@ class EachAlone extends Simulation {
       e.buttons === 1 &&
       this.state.play === 0
     ) {
-      var keyLeft = Math.floor(this.state.pageRight / 2);
-      var keyRight = Math.floor((this.state.pageRight * 3) / 4);
+      let keyLeft = Math.floor(this.state.pageRight / 2);
+      let keyRight = Math.floor((this.state.pageRight * 3) / 4);
 
       //portrait view switch
       if (this.state.CONTROLVERTDIV !== 1) {
@@ -830,10 +828,10 @@ class EachAlone extends Simulation {
         );
       }
 
-      var x = e.pageX - keyLeft;
-      var rangeX = keyRight - keyLeft;
-      var percX = x / rangeX;
-      var playVal;
+      const x = e.pageX - keyLeft;
+      const rangeX = keyRight - keyLeft;
+      const percX = x / rangeX;
+      let playVal;
       if (this.state.state === 0) {
         playVal = (percX - 0.175) * 500 + 100;
       } else if (this.state.state === 1) {
@@ -843,16 +841,14 @@ class EachAlone extends Simulation {
       }
       this.playNoteByValKey(
         this.state.state,
-        playVal,
-        this.state.index,
-        this.state.coordData,
+        playVal
       );
     }
   };
 
   /*** Sets notes for avg data ***/
   noteHelper = (ind) => {
-    var notes = [];
+    let notes = [];
     if (this.state.state === 0) {
       notes = this.getPrecipNotes(ind);
     } else if (this.state.state === 1) {
@@ -865,7 +861,7 @@ class EachAlone extends Simulation {
 
   /*** Sets notes for 001 data ***/
   noteHelper1 = (ind) => {
-    var notes = [];
+    let notes = [];
     if (this.state.state === 0) {
       notes = this.getPrecipNotes1(ind);
     } else if (this.state.state === 1) {
@@ -878,7 +874,7 @@ class EachAlone extends Simulation {
 
   /*** Sets notes for 002 data ***/
   noteHelper2 = (ind) => {
-    var notes = [];
+    let notes = [];
     if (this.state.state === 0) {
       notes = this.getPrecipNotes2(ind);
     } else if (this.state.state === 1) {
@@ -897,7 +893,7 @@ class EachAlone extends Simulation {
     } else {
       //console.log('play')
     }
-    var newind = this.state.index;
+    let newind = this.state.index;
     if (newind === 180) {
       newind = 0;
     }
@@ -949,7 +945,7 @@ class EachAlone extends Simulation {
       notePattern1.start(0);
       notePattern2.start(0);
       pianoPattern.start(0);
-      Tone.Transport.start("+0");
+      transport().start("+0");
     } else {
       Tone.start()
         .then(() => {
@@ -958,7 +954,7 @@ class EachAlone extends Simulation {
             notePattern1.start(0);
             notePattern2.start(0);
             pianoPattern.start(0);
-            Tone.Transport.start("+0");
+            transport().start("+0");
           });
         })
         .catch((error) => console.error(error));
@@ -1005,10 +1001,10 @@ class EachAlone extends Simulation {
 
   /*** triggers sound for new lat, lon, or city picked
    *** does not include model location selection ***/
-  triggerNotes = (lat, lon) => {
-    var coord_val;
-    var { dbX, dbY } = this.getDBCoords();
-    var coord_index = this.getDBIndex(dbX, dbY);
+  triggerNotes = () => {
+    let coord_val;
+    const { dbX, dbY } = this.getDBCoords();
+    const coord_index = this.getDBIndex(dbX, dbY);
     if (this.state.yearData.length >= coord_index) {
       coord_val = this.getValByCoord(this.state.yearData, coord_index);
     }
@@ -1024,8 +1020,8 @@ class EachAlone extends Simulation {
   componentWillUnmount = () => {
     try {
       // stop scheduled events + reset timeline
-      Tone.Transport.stop();
-      Tone.Transport.cancel(0);
+      transport().stop();
+      transport().cancel(0);
 
       // stop any playing sources you created, if you have references
       // (see Fix 2 below)
@@ -1077,35 +1073,35 @@ class EachAlone extends Simulation {
   /*** Picks where to put crosshairs ***/
   getLocations = () => {
     /* A bunch of variables used to calculate crosshair position */
-    var fsize = 12;
-    var modelSplit = Math.floor(
+    const fsize = 12;
+    const modelSplit = Math.floor(
       (this.state.pageBottom * this.state.MAPVERTDIV) / 2,
     );
-    var modelLeft =
+    const modelLeft =
       Math.floor(this.state.pageRight * (1 - this.state.MAPDIV)) +
       this.state.PADDING / 2;
-    var modelDiv = Math.floor((this.state.pageRight * this.state.MAPDIV) / 3);
-    var modelTop = this.state.PADDING / 2;
+    const modelDiv = Math.floor((this.state.pageRight * this.state.MAPDIV) / 3);
+    let modelTop = this.state.PADDING / 2;
     if (this.state.pageBottom > this.state.pageRight) {
       modelTop =
         this.state.pageBottom * this.state.CONTROLVERTDIV +
         this.state.PADDING / 2;
     }
 
-    var centerX = 0;
-    var centerY = 0;
+    let centerX = 0;
+    let centerY = 0;
 
-    var xAdj = (this.state.longitude * modelDiv) / 360 - fsize / 4;
-    var yAdj = 0 - (this.state.latitude * modelSplit) / 180 - fsize / 2;
+    let xAdj = (this.state.longitude * modelDiv) / 360 - fsize / 4;
+    let yAdj = 0 - (this.state.latitude * modelSplit) / 180 - fsize / 2;
 
     //polar coords, they work but are not great at all
     if (this.state.state === 2) {
-      var rX = (90 - this.state.latitude) * (modelDiv / 40);
-      var rY = (90 - this.state.latitude) * (modelSplit / 45);
+      const rX = (90 - this.state.latitude) * (modelDiv / 40);
+      const rY = (90 - this.state.latitude) * (modelSplit / 45);
 
-      var theta = ((this.state.longitude / 180) * Math.PI) / 2;
+      const theta = ((this.state.longitude / 180) * Math.PI) / 2;
 
-      var multX = Math.sin(theta);
+      let multX = Math.sin(theta);
       if (this.state.longitude < -90) {
         multX = (Math.PI * 41) / 128 + multX;
         multX = 0 - multX;
@@ -1120,10 +1116,10 @@ class EachAlone extends Simulation {
         multX += Math.PI / 8;
       }
 
-      var multY = 0.5 - Math.cos(theta);
+      let multY = 0.5 - Math.cos(theta);
       multY *= 2;
 
-      var ybase = 0;
+      let ybase = 0;
       if (
         this.state.latitude < 75 &&
         this.state.longitude > -150 &&
@@ -1140,8 +1136,9 @@ class EachAlone extends Simulation {
 
     centerX = modelLeft + modelDiv / 2;
     centerY = modelTop + modelSplit / 2;
-    var location1 = {
+    const location1: React.CSSProperties = {
       position: "absolute",
+      display: "block",
       left: centerX + xAdj,
       top: centerY + yAdj,
       color: "red",
@@ -1153,14 +1150,15 @@ class EachAlone extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     centerX = modelLeft + modelDiv + modelDiv / 2;
     centerY = modelTop + modelSplit / 2;
-    var location2 = {
+    const location2:React.CSSProperties = {
       position: "absolute",
+      display: "block",
       left: centerX + xAdj,
       top: centerY + yAdj,
       color: "red",
@@ -1172,14 +1170,15 @@ class EachAlone extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     centerX = modelLeft + 2 * modelDiv + modelDiv / 2;
     centerY = modelTop + modelSplit / 2;
-    var location3 = {
+    const location3:React.CSSProperties = {
       position: "absolute",
+      display: "block",
       left: centerX + xAdj,
       top: centerY + yAdj,
       color: "red",
@@ -1191,14 +1190,15 @@ class EachAlone extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     centerX = modelLeft + modelDiv / 2;
     centerY = modelTop + modelSplit + modelSplit / 2;
-    var location4 = {
+    const location4:React.CSSProperties = {
       position: "absolute",
+      display: "block",
       left: centerX + xAdj,
       top: centerY + yAdj,
       color: "red",
@@ -1210,8 +1210,9 @@ class EachAlone extends Simulation {
 
     centerX = modelLeft + modelDiv + modelDiv / 2;
     centerY = modelTop + modelSplit + modelSplit / 2;
-    var location5 = {
+    const location5:React.CSSProperties = {
       position: "absolute",
+      display: "block",
       left: centerX + xAdj,
       top: centerY + yAdj,
       color: "red",
@@ -1223,14 +1224,15 @@ class EachAlone extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     centerX = modelLeft + 2 * modelDiv + modelDiv / 2;
     centerY = modelTop + modelSplit + modelSplit / 2;
-    var location6 = {
+    const location6:React.CSSProperties = {
       position: "absolute",
+      display: "block",
       left: centerX + xAdj,
       top: centerY + yAdj,
       color: "red",
@@ -1242,8 +1244,8 @@ class EachAlone extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     if (this.state.state === 2 && this.state.latitude < 62) {
@@ -1262,49 +1264,45 @@ class EachAlone extends Simulation {
   openAbout = () => {
     const { navigation } = this.props;
     if (this.state.play === 1) {
-      this.stopMusic(1);
+      this.stopMusic(true);
     }
-    navigation.navigate("About", {
-      page: 0,
-      pageBottom: this.state.pageBottom,
-      pageRight: this.state.pageRight,
-    });
+    navigation.navigate("About");
   };
 
   /*** runs on state update ***/
   render() {
-    var { location1, location2, location3, location4, location5, location6 } =
+    const { location1, location2, location3, location4, location5, location6 } =
       this.getLocations();
 
-    var playButton = this.getPlayButton();
+    const playButton = this.getPlayButton();
 
-    var { dbX, dbY } = this.getDBCoords();
+    const { dbX, dbY } = this.getDBCoords();
 
     const co2Raw = this._getCo2Val(this.state.index);
-    var co2val = co2Raw == null ? "--" : Math.round(co2Raw);
+    const co2val = co2Raw == null ? "--" : Math.round(co2Raw);
 
     /*** setup model URL ***/
-    var urlAdd = urlPre.concat(this.state.modelStr);
-    var ind = this.state.index.toString();
-    var suffix = ind.concat(".jpg");
-    var fullUrl = urlAdd.concat(suffix);
+    const urlAdd = urlPre.concat(this.state.modelStr);
+    const ind = this.state.index.toString();
+    const suffix = ind.concat(".jpg");
+    const fullUrl = urlAdd.concat(suffix);
 
     /*** Get db value ***/
-    var coord_val = 0;
+    let coord_val = 0;
     /* if useArray == 3, use the dataset that contains all years of a coord */
     if (this.state.useArray === 3) {
       coord_val = this.getValByIndex(this.state.coordData, this.state.index);
     } else {
       /* use the dataset that contains all coords at a specific year */
-      var coord_index = this.getDBIndex(dbX, dbY);
+      const coord_index = this.getDBIndex(dbX, dbY);
       if (this.state.yearData.length > coord_index) {
         coord_val = this.getValByCoord(this.state.yearData, coord_index);
       }
     }
 
     /* how to label model data */
-    var data_pre = "Precipitation: ";
-    var data_post = " % of Annual Avg";
+    let data_pre = "Precipitation: ";
+    let data_post = " % of Annual Avg";
     if (this.state.state === 1) {
       data_pre = "Temperature: +";
       if (coord_val < 0) {
@@ -1359,25 +1357,27 @@ class EachAlone extends Simulation {
       aboutButton,
     } = this.getCommonStyles();
 
-    var newh = (controlHeight * 9) / 40;
+    let newh = (controlHeight * 9) / 40;
     if (this.state.CONTROLVERTDIV !== 1) {
       newh /= 1 - this.state.CONTROLVERTDIV;
     }
 
-    var largeControlBlockStyle = {
+    const largeControlBlockStyle: React.CSSProperties = {
       height: Math.floor(newh),
       width: Math.floor(controlWidth * this.state.CONTROLSPLIT),
       overflow: "hidden",
       float: "left",
-    };
+    } satisfies React.CSSProperties;
 
-    var smallDataStyle = {
-      height: Math.floor((dataBlockStyle.height * 9) / 10),
+    const h = dataBlockStyle.height ?? 0;
+    const heightNum = typeof h === "number" ? h : parseFloat(h) || 0;   
+    const smallDataStyle: React.CSSProperties = {
+      height: Math.floor((heightNum * 9) / 10),
       width: dataBlockStyle.width,
       overflow: dataBlockStyle.overflow,
-      text: dataBlockStyle.text,
+      float: dataBlockStyle.float,
       textAlign: dataBlockStyle.textAlign,
-    };
+    } satisfies React.CSSProperties;
 
     /*** Return the page ***/
     return (
@@ -1437,7 +1437,7 @@ class EachAlone extends Simulation {
                   style={playSplitDivStyle}
                   onClick={
                     this.state.play
-                      ? () => this.stopMusic(0)
+                      ? () => this.stopMusic(false)
                       : () => this.playMusic()
                   }
                 >
@@ -1762,7 +1762,7 @@ export default function EachAloneWrapper(props) {
   const { navigation, route } = useNavigationShim();
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "white" }}>
+    <div style={{ minHeight: "100vh", backgroundColor: "#efefef" }}>
       <EachAlone {...props} navigation={navigation} route={route} />
     </div>
   );

@@ -1,1 +1,4 @@
-export const timer = (ms) => new Promise((res) => setTimeout(res, ms));
+export const timer = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });

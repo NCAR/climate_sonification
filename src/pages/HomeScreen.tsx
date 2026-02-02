@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
+import * as React from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigationShim, Navigation } from "../routing/useNavigationShim";
 import { isBrowser, isMobile } from "react-device-detect";
 import { eachAloneButton, allTogetherButton, qrImg } from "../const/url";

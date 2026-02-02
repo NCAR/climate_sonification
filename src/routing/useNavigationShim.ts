@@ -39,6 +39,19 @@ function parseQuery(search: string): RouteParams {
 
   return params;
 }
+function buildQuery(params?: RouteParams): string {
+  if (!params) return "";
+
+  const sp = new URLSearchParams();
+
+  for (const [k, v] of Object.entries(params)) {
+    if (v === null || v === undefined) continue;
+    sp.set(k, String(v));
+  }
+
+  const qs = sp.toString();
+  return qs ? `?${qs}` : "";
+}
 
 export function useNavigationShim(): {
   navigation: Navigation;
@@ -53,27 +66,11 @@ export function useNavigationShim(): {
 
   const navigation = useMemo<Navigation>(() => {
     return {
-      goBack: () => rrNavigate(-1),
+      goBack: (): void => { rrNavigate(-1) },
 
-      navigate: (screenName, params) => {
+      navigate: (screenName: ScreenName, params?: RouteParams): void => {
         const path = ROUTES[screenName];
-        if (!path) {
-          throw new Error(
-            `Unknown screen "${screenName}". Add it to ROUTES in useNavigationShim.ts.`,
-          );
-        }
-
-        if (params && Object.keys(params).length > 0) {
-          const qs = new URLSearchParams();
-          for (const [k, v] of Object.entries(params)) {
-            if (v !== undefined && v !== null) {
-              qs.set(k, String(v));
-            }
-          }
-          rrNavigate(`${path}?${qs.toString()}`);
-        } else {
-          rrNavigate(path);
-        }
+        rrNavigate(`${path}${buildQuery(params)}`);
       },
     };
   }, [rrNavigate]);

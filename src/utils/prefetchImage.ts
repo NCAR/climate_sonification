@@ -1,14 +1,22 @@
 // src/utils/prefetchImage.js
-const cache = new Map();
+const cache = new Map<string, Promise<boolean>>();
 
-export function prefetchImage(url:string) {
+export function prefetchImage(url: string): Promise<boolean> {
   if (!url) return Promise.resolve(false);
-  if (cache.has(url)) return cache.get(url);
+  const cached = cache.get(url);
+  if (cached) return cached;
 
-  const p = new Promise((resolve, reject) => {
+  const p: Promise<boolean> = new Promise<boolean>((resolve, reject) => {
     const img = new window.Image();
-    img.onload = () => resolve(true);
-    img.onerror = reject;
+
+    img.onload = ():void => {
+      resolve(true);
+    };
+
+    img.onerror = ():void => {
+      reject(new Error(`Failed to load image: ${url}`));
+    };
+
     img.src = url;
   });
 

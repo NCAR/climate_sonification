@@ -1,10 +1,9 @@
 import { prefetchImage } from "../utils/prefetchImage.js";
-import React from "react";
-import { useNavigationShim } from "../routing/useNavigationShim.js";
+import { useNavigationShim } from "../routing/useNavigationShim";
 import Axios from "axios";
 import PubSub from "pubsub-js";
 import { isBrowser } from "react-device-detect";
-import { Simulation } from "./Simulation.jsx";
+import { Simulation } from "./Simulation";
 import * as Tone from "tone";
 import { getClosestCity, getInfo } from "../const/cities.js";
 import { RED, YELLOW, GREEN, BLUE } from "../const/color.js";
@@ -31,6 +30,8 @@ import {
 function isNumeric(value) {
   return /^-?\d+$/.test(value);
 }
+
+const transport = () => Tone.getTransport();
 /*
 let cancelYearPrecip;
 let cancelCoordPrecip;
@@ -49,28 +50,31 @@ const CancelToken = Axios.CancelToken;
 class AllTogether extends Simulation {
   constructor(props) {
     super(props);
-    this.state.modelStr = "/combined/combined_ens";
-    this.state.precipAvg = [0];
-    this.state.tempAvg = [0];
-    this.state.iceAvg = [0];
-    this.state.precip1 = [0];
-    this.state.temp1 = [0];
-    this.state.ice1 = [0];
-    this.state.precipAvgAllCoords = [0];
-    this.state.tempAvgAllCoords = [0];
-    this.state.iceAvgAllCoords = [0];
+    this.state = {
+      ...this.state,
+      modelStr: "/combined/combined_ens",
+      precipAvg: [0],
+      tempAvg: [0],
+      iceAvg: [0],
+      precip1: [0],
+      temp1: [0],
+      ice1: [0],
+      precipAvgAllCoords: [0],
+      tempAvgAllCoords: [0],
+      iceAvgAllCoords: [0],
+    };
   }
-  yearPrecipController = null;
-  yearTempController = null;
-  yearIceController = null;
+  yearPrecipController: AbortController | null = null;
+  yearTempController: AbortController | null = null;
+  yearIceController: AbortController | null = null;
 
-  coordPrecipAvgController = null;
-  coordTempAvgController = null;
-  coordIceAvgController = null;
+  coordPrecipAvgController: AbortController | null = null;
+  coordTempAvgController: AbortController | null = null;
+  coordIceAvgController: AbortController | null = null;
 
-  coordPrecip1Controller = null;
-  coordTemp1Controller = null;
-  coordIce1Controller = null;
+  coordPrecip1Controller: AbortController | null = null;
+  coordTemp1Controller: AbortController | null = null;
+  coordIce1Controller: AbortController | null = null;
 
   _isYearSeriesReady = (arr) => {
     // Your "all years for a coord" data is expected to be an array
@@ -89,37 +93,37 @@ class AllTogether extends Simulation {
   };
 
   /* Test precip model key */
-  testPrecipMusic = (e) => {
+  testPrecipMusic = (e: React.PointerEvent | React.MouseEvent) => {
     if (
       this.state.notePlaying === 0 &&
       e.buttons === 1 &&
       this.state.play === 0
     ) {
-      var keyLeft = Math.floor(this.state.pageRight / 4);
-      var keyRight = Math.floor(this.state.pageRight / 2);
+      let keyLeft = Math.floor(this.state.pageRight / 4);
+      let keyRight = Math.floor(this.state.pageRight / 2);
       if (this.state.CONTROLVERTDIV !== 1) {
         keyLeft = Math.floor(this.state.pageRight / 20);
         keyRight = Math.floor(
           this.state.pageRight / 20 + (this.state.pageRight * 19) / 20 / 3,
         );
       }
-      var x = e.pageX - keyLeft;
-      var rangeX = keyRight - keyLeft;
-      var percX = x / rangeX;
-      var playVal = (percX - 0.175) * 500 + 100;
-      this.playNoteByValKey(0, playVal, this.state.index, this.state.precipAvg);
+      const x = e.pageX - keyLeft;
+      const rangeX = keyRight - keyLeft;
+      const percX = x / rangeX;
+      const playVal = (percX - 0.175) * 500 + 100;
+      this.playNoteByValKey(0, playVal);
     }
   };
 
   /* Test temp model key */
-  testTempMusic = (e) => {
+  testTempMusic = (e: React.PointerEvent | React.MouseEvent) => {
     if (
       this.state.notePlaying === 0 &&
       e.buttons === 1 &&
       this.state.play === 0
     ) {
-      var keyLeft = Math.floor(this.state.pageRight / 2);
-      var keyRight = Math.floor((this.state.pageRight * 3) / 4);
+      let keyLeft = Math.floor(this.state.pageRight / 2);
+      let keyRight = Math.floor((this.state.pageRight * 3) / 4);
       if (this.state.CONTROLVERTDIV !== 1) {
         keyLeft = Math.floor(
           this.state.pageRight / 20 + (this.state.pageRight * 19) / 20 / 3,
@@ -128,39 +132,39 @@ class AllTogether extends Simulation {
           this.state.pageRight / 20 + (2 * this.state.pageRight * 19) / 20 / 3,
         );
       }
-      var x = e.pageX - keyLeft;
-      var rangeX = keyRight - keyLeft;
-      var percX = x / rangeX;
-      var playVal = (percX - 0.14) * 23;
-      this.playNoteByValKey(1, playVal, this.state.index, this.state.tempAvg);
+      const x = e.pageX - keyLeft;
+      const rangeX = keyRight - keyLeft;
+      const percX = x / rangeX;
+      const playVal = (percX - 0.14) * 23;
+      this.playNoteByValKey(1, playVal);
     }
   };
 
   /* Test sea ice model key */
-  testIceMusic = (e) => {
+  testIceMusic = (e: React.PointerEvent | React.MouseEvent) => {
     if (
       this.state.notePlaying === 0 &&
       e.buttons === 1 &&
       this.state.play === 0
     ) {
-      var keyLeft = Math.floor((this.state.pageRight * 3) / 4);
-      var keyRight = Math.floor(this.state.pageRight);
+      let keyLeft = Math.floor((this.state.pageRight * 3) / 4);
+      let keyRight = Math.floor(this.state.pageRight);
       if (this.state.CONTROLVERTDIV !== 1) {
         keyLeft = Math.floor(
           this.state.pageRight / 20 + (2 * this.state.pageRight * 19) / 20 / 3,
         );
         keyRight = Math.floor(this.state.pageRight);
       }
-      var x = e.pageX - keyLeft;
-      var rangeX = keyRight - keyLeft;
-      var percX = x / rangeX;
-      var playVal = percX;
-      this.playNoteByValKey(2, playVal, this.state.index, this.state.iceAvg);
+      const x = e.pageX - keyLeft;
+      const rangeX = keyRight - keyLeft;
+      const percX = x / rangeX;
+      const playVal = percX;
+      this.playNoteByValKey(2, playVal);
     }
   };
 
   /*** When map coord is selected, do db query ***/
-  onPointerUp = (e) => {
+  onPointerUp = (e: React.PointerEvent | React.MouseEvent) => {
     this.killMapTransport(e);
     if (this.state.play === 0) {
       //console.log('state ply is 0 on pointerup');
@@ -169,36 +173,36 @@ class AllTogether extends Simulation {
   };
 
   /*** Used to calculate coords on model for onMouseDown and onMouseMove ***/
-  onMouseDown = (e) => {
+  onMouseDown = (e: React.PointerEvent | React.MouseEvent) => {
     if (e.buttons !== 1) {
       return -1;
     }
     if (this.state.play === 1) {
-      this.stopMusic(0);
+      this.stopMusic(false);
     }
     if (this.state.notePlaying !== 0) {
       return -1;
     }
-    var modelSplit = Math.floor(
+    const modelSplit = Math.floor(
       (this.state.pageBottom * this.state.MAPVERTDIV) / 2,
     );
-    var modelLeft =
+    const modelLeft =
       Math.floor(this.state.pageRight * (1 - this.state.MAPDIV)) +
       this.state.PADDING / 2;
-    var modelDiv = Math.floor((this.state.pageRight * this.state.MAPDIV) / 3);
-    var modelTop = this.state.PADDING / 2;
+    const modelDiv = Math.floor((this.state.pageRight * this.state.MAPDIV) / 3);
+    let modelTop = this.state.PADDING / 2;
     if (this.state.pageBottom > this.state.pageRight) {
       modelTop =
         this.state.pageBottom * this.state.CONTROLVERTDIV +
         this.state.PADDING / 2;
     }
-    var x = Math.floor(e.pageX - modelLeft);
-    var y = Math.floor(e.pageY - modelTop);
-    var latSave = 0;
-    var lonSave = 0;
-    var centerX = 0;
-    var centerY = 0;
-    var boxType = 0;
+    const x = Math.floor(e.pageX - modelLeft);
+    const y = Math.floor(e.pageY - modelTop);
+    let latSave = 0;
+    let lonSave = 0;
+    let centerX = 0;
+    let centerY = 0;
+    let boxType = 0;
 
     if (x <= modelDiv && y <= modelSplit) {
       centerX = modelDiv / 2;
@@ -233,19 +237,19 @@ class AllTogether extends Simulation {
     }
     //polar coords
     else if (boxType === 2) {
-      var dx = x - centerX;
+      let dx = x - centerX;
       dx *= modelSplit / ((modelDiv * 3) / 4);
-      var dy = centerY - y;
-      var r = Math.sqrt(dx ** 2 + dy ** 2);
-      var theta = Math.atan(dy / dx);
+      const dy = centerY - y;
+      const r = Math.sqrt(dx ** 2 + dy ** 2);
+      let theta = Math.atan(dy / dx);
       theta += Math.PI / 2;
       if (dx > 0) {
         theta += Math.PI;
       }
       theta /= Math.PI;
       theta /= 2;
-      var newlon = Math.floor(theta * 360 - 180);
-      var newlat = r / modelSplit;
+      const newlon = Math.floor(theta * 360 - 180);
+      let newlat = r / modelSplit;
       newlat *= 56;
       lonSave = newlon;
       latSave = 90 - newlat;
@@ -261,17 +265,17 @@ class AllTogether extends Simulation {
     });
 
     //diplay data and play notes
-    var { dbX, dbY } = this.getDBCoords();
-    var coord_index = this.getDBIndex(dbX, dbY);
+    const { dbX, dbY } = this.getDBCoords();
+    const coord_index = this.getDBIndex(dbX, dbY);
     if (
       this.state.precipAvgAllCoords.length >= coord_index &&
       this.state.tempAvgAllCoords.length >= coord_index &&
       this.state.iceAvgAllCoords.length >= coord_index
     ) {
-      var val1 = this.getValByCoord(this.state.precipAvgAllCoords, coord_index);
-      var val2 = this.getValByCoord(this.state.tempAvgAllCoords, coord_index);
-      var val3 = this.getValByCoord(this.state.iceAvgAllCoords, coord_index);
-      var val4 = this.state.co2data[this.state.index].co2_val;
+      const val1 = this.getValByCoord(this.state.precipAvgAllCoords, coord_index);
+      const val2 = this.getValByCoord(this.state.tempAvgAllCoords, coord_index);
+      const val3 = this.getValByCoord(this.state.iceAvgAllCoords, coord_index);
+      const val4 = this.state.co2data[this.state.index].co2_val;
       this.playTogetherMapNotes(
         val1,
         val2,
@@ -286,11 +290,11 @@ class AllTogether extends Simulation {
   };
 
   /*** stops music ***/
-  stopMusic = (terminate) => {
+  stopMusic = (terminate?: boolean) => {
     this.setState({ play: 0, playButton: playUrl });
-    Tone.Transport.stop();
-    Tone.Transport.cancel(0);
-    if (terminate === 0) {
+    transport().stop();
+    transport().cancel(0);
+    if (terminate === false) {
       this.doYearHits(this.state.index + 1920);
     }
   };
@@ -538,10 +542,10 @@ class AllTogether extends Simulation {
   }
 
   /*** called when the window is resized
-   *** see EachAlone for var descriptions***/
+   *** see EachAlone for let descriptions***/
   updateDimensions = () => {
-    var newheight = window.innerHeight;
-    var newwidth = window.innerWidth;
+    const newheight = window.innerHeight;
+    const newwidth = window.innerWidth;
 
     //landscape
     if (window.innerHeight < window.innerWidth) {
@@ -638,25 +642,25 @@ class AllTogether extends Simulation {
   /*** query db for all coords at a specific year ***/
   doYearHits(year) {
     if (year >= 1920 && year <= 2100) {
-      var intermediate0 = dbUrl.concat("precipavg/year/");
-      var request0 = intermediate0.concat(year.toString(10));
+      const intermediate0 = dbUrl.concat("precipavg/year/");
+      const request0 = intermediate0.concat(year.toString(10));
       this.precipYearApi(request0.concat(".txt"));
 
-      var intermediate1 = dbUrl.concat("tempavg/year/");
-      var request1 = intermediate1.concat(year.toString(10));
+      const intermediate1 = dbUrl.concat("tempavg/year/");
+      const request1 = intermediate1.concat(year.toString(10));
       this.tempYearApi(request1.concat(".txt"));
 
-      var intermediate2 = dbUrl.concat("seaiceavg/year/");
-      var request2 = intermediate2.concat(year.toString(10));
+      const intermediate2 = dbUrl.concat("seaiceavg/year/");
+      const request2 = intermediate2.concat(year.toString(10));
       this.iceYearApi(request2.concat(".txt"));
     }
   }
 
   /*** change lat text from input ***/
   onChangeLat = (event) => {
-    var newval = event.target.value;
+    const newval = event.target.value;
     if (this.state.play === 0 && isNumeric(newval)) {
-      var parsedval = parseInt(newval);
+      const parsedval = parseInt(newval);
       if (parsedval >= -90 && parsedval <= 90) {
         this.doCoordHits(parsedval, this.state.longitude);
         this.setState({
@@ -664,9 +668,9 @@ class AllTogether extends Simulation {
           useArray: 0,
         });
         this.setupGraph();
-        this.triggerNotes(parsedval, 0);
+        this.triggerNotes();
         if (this.state.play === 1) {
-          this.stopMusic();
+          this.stopMusic(false);
         }
       }
     }
@@ -674,9 +678,9 @@ class AllTogether extends Simulation {
 
   /*** change lon text from input ***/
   onChangeLon = (event) => {
-    var newval = event.target.value;
+    const newval = event.target.value;
     if (this.state.play === 0 && isNumeric(newval)) {
-      var parsedval = parseInt(newval);
+      const parsedval = parseInt(newval);
       if (parsedval >= -180 && parsedval <= 180) {
         this.doCoordHits(this.state.latitude, parsedval);
         this.setState({
@@ -684,19 +688,19 @@ class AllTogether extends Simulation {
           useArray: 0,
         });
         this.setupGraph();
-        this.triggerNotes(0, parsedval);
+        this.triggerNotes();
         if (this.state.play === 1) {
-          this.stopMusic();
+          this.stopMusic(false);
         }
       }
     }
   };
 
   /*** runs when new lat / lon typed or city selected ***/
-  triggerNotes = (lat, lon) => {
-    var precip_val, temp_val, ice_val;
-    var { dbX, dbY } = this.getDBCoords();
-    var coord_index = this.getDBIndex(dbX, dbY);
+  triggerNotes = () => {
+    let precip_val, temp_val, ice_val;
+    const { dbX, dbY } = this.getDBCoords();
+    const coord_index = this.getDBIndex(dbX, dbY);
     if (this.state.precipAvgAllCoords.length > coord_index) {
       precip_val = this.getValByCoord(
         this.state.precipAvgAllCoords,
@@ -709,7 +713,7 @@ class AllTogether extends Simulation {
     if (this.state.iceAvgAllCoords.length > coord_index) {
       ice_val = this.getValByCoord(this.state.iceAvgAllCoords, coord_index);
     }
-    var co2_val = this.state.co2data[this.state.index].co2_val;
+    const co2_val = this.state.co2data[this.state.index].co2_val;
     this.triggerNoteByVal(0, precip_val);
     this.triggerNoteByVal(1, temp_val);
     this.triggerNoteByVal(2, ice_val);
@@ -849,15 +853,15 @@ class AllTogether extends Simulation {
 
   /*** query db for all years of a specific coord ***/
   doCoordHits(lat, lon) {
-    var closestcity = getClosestCity(lat, lon);
-    var { dbX, dbY } = this.getDBCoords();
+    const closestcity = getClosestCity(lat, lon);
+    const { dbX, dbY } = this.getDBCoords();
     this.setState({
       latitude: Math.floor(lat),
       longitude: Math.floor(lon),
       closestCity: closestcity,
       waiting: 6,
     });
-    var request;
+    let request;
 
     /* Filter and do db hit here */
     if (dbX <= 360 && dbX >= 1 && dbY <= 180 && dbY >= 1) {
@@ -912,7 +916,7 @@ class AllTogether extends Simulation {
       //console.log('waiting');
       return;
     }
-    var newind = this.state.index;
+    let newind = this.state.index;
     if (newind === 180) {
       newind = 0;
     }
@@ -991,7 +995,7 @@ class AllTogether extends Simulation {
         icePattern.start(0);
         icePattern1.start(0);
       }
-      Tone.Transport.start("+0");
+      transport().start("+0");
     } else {
       Tone.start()
         .then(() => {
@@ -1005,7 +1009,7 @@ class AllTogether extends Simulation {
             icePattern.start(0.001);
             icePattern1.start(0.001);
           }
-          Tone.Transport.start("+0");
+          transport().start("+0");
         })
         .catch((error) => console.error(error));
     }
@@ -1031,13 +1035,13 @@ class AllTogether extends Simulation {
     const note2 = this.getNote(2, val3);
     const pianoNote = this.getNote(3, val4);
     this.setState({ notePlaying: 1 });
-    Tone.Transport.scheduleOnce((time) => {
+    transport().scheduleOnce((time) => {
       synth0.triggerAttackRelease(note0, "16n");
       synth1.triggerAttackRelease(note1, "16n");
       synth2.triggerAttackRelease(note2, "16n");
       piano.triggerAttackRelease(pianoNote, "16n");
     }, "+0");
-    Tone.Transport.scheduleOnce((time) => {
+    transport().scheduleOnce((time) => {
       this.setState({ notePlaying: 0 });
       synth0.dispose();
       synth1.dispose();
@@ -1048,27 +1052,27 @@ class AllTogether extends Simulation {
 
   /*** get styles only for this page ***/
   getTogetherStyles(mw, ch, cw) {
-    var modelWidth = mw;
-    var controlHeight = ch;
-    var controlWidth = cw;
-    var newh = (controlHeight * 4) / 20;
+    const modelWidth = mw;
+    const controlHeight = ch;
+    const controlWidth = cw;
+    let newh = (controlHeight * 4) / 20;
     if (this.state.CONTROLVERTDIV !== 1) {
       newh /= 1 - this.state.CONTROLVERTDIV;
     }
 
-    var largeControlBlockStyle = {
+    const largeControlBlockStyle: React.CSSProperties = {
       height: Math.floor(newh),
       width: Math.floor(controlWidth * this.state.CONTROLSPLIT),
       overflow: "hidden",
       float: "left",
     };
 
-    var graphHeight = this.state.pageBottom * this.state.GRAPHVERTDIV;
+    let graphHeight = this.state.pageBottom * this.state.GRAPHVERTDIV;
     if (isNaN(graphHeight)) {
       graphHeight = 0;
     }
 
-    var graphWidth = modelWidth;
+    let graphWidth = modelWidth;
     if (isNaN(graphWidth)) {
       graphWidth = 0;
     }
@@ -1084,10 +1088,10 @@ class AllTogether extends Simulation {
 
   /*** for chaning city ***/
   changeToCity = (event) => {
-    var city = event.target.value;
-    var cityinfo = getInfo(city);
-    var lat = cityinfo.latitude;
-    var lon = cityinfo.longitude;
+    const city = event.target.value;
+    const cityinfo = getInfo(city);
+    const lat = cityinfo.latitude;
+    const lon = cityinfo.longitude;
     this.doCoordHits(lat, lon);
     this.setState({
       latitude: lat,
@@ -1095,9 +1099,9 @@ class AllTogether extends Simulation {
       useArray: 0,
     });
     this.setupGraph();
-    this.triggerNotes(lat, lon);
+    this.triggerNotes();
     if (this.state.play === 1) {
-      this.stopMusic();
+      this.stopMusic(false);
     }
   };
 
@@ -1105,8 +1109,8 @@ class AllTogether extends Simulation {
   componentWillUnmount = () => {
     try {
       // stop scheduled events + reset timeline
-      Tone.Transport.stop();
-      Tone.Transport.cancel(0);
+      transport().stop();
+      transport().cancel(0);
 
       // stop any playing sources you created, if you have references
       // (see Fix 2 below)
@@ -1136,47 +1140,47 @@ class AllTogether extends Simulation {
 
   /*** for playing model keys ***/
   setupPrecipTransport = (e) => {
-    Tone.Transport.start("+0");
+    transport().start("+0");
     this.testPrecipMusic(e);
   };
 
   setupTempTransport = (e) => {
-    Tone.Transport.start("+0");
+    transport().start("+0");
     this.testTempMusic(e);
   };
 
   setupIceTransport = (e) => {
-    Tone.Transport.start("+0");
+    transport().start("+0");
     this.testIceMusic(e);
   };
 
   /*** get locations for crosshair ***/
   getLocations = () => {
     /* A bunch of variables used to calculate crosshair position */
-    var fsize = 12;
-    var modelSplit = Math.floor(
+    const fsize = 12;
+    const modelSplit = Math.floor(
       (this.state.pageBottom * this.state.MAPVERTDIV) / 2,
     );
-    var modelLeft =
+    const modelLeft =
       Math.floor(this.state.pageRight * (1 - this.state.MAPDIV)) +
       this.state.PADDING / 2;
-    var modelDiv = Math.floor((this.state.pageRight * this.state.MAPDIV) / 3);
-    var modelTop = this.state.PADDING / 2;
+    const modelDiv = Math.floor((this.state.pageRight * this.state.MAPDIV) / 3);
+    let modelTop = this.state.PADDING / 2;
     if (this.state.pageBottom > this.state.pageRight) {
       modelTop =
         this.state.pageBottom * this.state.CONTROLVERTDIV +
         this.state.PADDING / 2;
     }
 
-    var centerX = 0;
-    var centerY = 0;
+    let centerX = 0;
+    let centerY = 0;
 
-    var xAdj = (this.state.longitude * modelDiv) / 360 - fsize / 4;
-    var yAdj = 0 - (this.state.latitude * modelSplit) / 180 - fsize / 2;
+    let xAdj = (this.state.longitude * modelDiv) / 360 - fsize / 4;
+    let yAdj = 0 - (this.state.latitude * modelSplit) / 180 - fsize / 2;
 
     centerX = modelLeft + modelDiv / 2;
     centerY = modelTop + modelSplit / 2;
-    var location1 = {
+    const location1:React.CSSProperties = {
       position: "absolute",
       left: centerX + xAdj,
       top: centerY + yAdj,
@@ -1189,13 +1193,13 @@ class AllTogether extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     centerX = modelLeft + modelDiv + modelDiv / 2;
     centerY = modelTop + modelSplit / 2;
-    var location2 = {
+    const location2:React.CSSProperties = {
       position: "absolute",
       left: centerX + xAdj,
       top: centerY + yAdj,
@@ -1208,13 +1212,13 @@ class AllTogether extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     centerX = modelLeft + modelDiv / 2;
     centerY = modelTop + modelSplit + modelSplit / 2;
-    var location4 = {
+    const location4:React.CSSProperties = {
       position: "absolute",
       left: centerX + xAdj,
       top: centerY + yAdj,
@@ -1227,13 +1231,13 @@ class AllTogether extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     centerX = modelLeft + modelDiv + modelDiv / 2;
     centerY = modelTop + modelSplit + modelSplit / 2;
-    var location5 = {
+    const location5:React.CSSProperties = {
       position: "absolute",
       left: centerX + xAdj,
       top: centerY + yAdj,
@@ -1246,17 +1250,17 @@ class AllTogether extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     /* adjusdments for polar coords, not very accurate */
-    var rX = (90 - this.state.latitude) * (modelDiv / 40);
-    var rY = (90 - this.state.latitude) * (modelSplit / 45);
+    const rX = (90 - this.state.latitude) * (modelDiv / 40);
+    const rY = (90 - this.state.latitude) * (modelSplit / 45);
 
-    var theta = ((this.state.longitude / 180) * Math.PI) / 2;
+    const theta = ((this.state.longitude / 180) * Math.PI) / 2;
 
-    var multX = Math.sin(theta);
+    let multX = Math.sin(theta);
     if (this.state.longitude < -90) {
       multX = (Math.PI * 41) / 128 + multX;
       multX = 0 - multX;
@@ -1271,10 +1275,10 @@ class AllTogether extends Simulation {
       multX += Math.PI / 8;
     }
 
-    var multY = 0.5 - Math.cos(theta);
+    let multY = 0.5 - Math.cos(theta);
     multY *= 2;
 
-    var ybase = 0;
+    let ybase = 0;
     if (
       this.state.latitude < 75 &&
       this.state.longitude > -150 &&
@@ -1290,7 +1294,7 @@ class AllTogether extends Simulation {
 
     centerX = modelLeft + 2 * modelDiv + modelDiv / 2;
     centerY = modelTop + modelSplit / 2;
-    var location3 = {
+    const location3:React.CSSProperties = {
       position: "absolute",
       left: centerX + xAdj,
       top: centerY + yAdj,
@@ -1303,13 +1307,13 @@ class AllTogether extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     centerX = modelLeft + 2 * modelDiv + modelDiv / 2;
     centerY = modelTop + modelSplit + modelSplit / 2;
-    var location6 = {
+    const location6:React.CSSProperties = {
       position: "absolute",
       left: centerX + xAdj,
       top: centerY + yAdj,
@@ -1322,8 +1326,8 @@ class AllTogether extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     if (this.state.latitude < 62) {
@@ -1338,23 +1342,19 @@ class AllTogether extends Simulation {
   openAbout = () => {
     const { navigation } = this.props;
     if (this.state.play === 1) {
-      this.stopMusic(1);
+      this.stopMusic(true);
     }
-    navigation.navigate("About", {
-      page: 1,
-      pageBottom: this.state.pageBottom,
-      pageRight: this.state.pageRight,
-    });
+    navigation.navigate("About");
   };
 
   /*** runs on state update ***/
   render() {
-    var { location1, location2, location3, location4, location5, location6 } =
+    const { location1, location2, location3, location4, location5, location6 } =
       this.getLocations();
 
-    var playButton = this.getPlayButton();
+    const playButton = this.getPlayButton();
 
-    var { dbX, dbY } = this.getDBCoords();
+    const { dbX, dbY } = this.getDBCoords();
 
     const co2_obj = this.state.co2data?.[this.state.index];
     const co2val = Number.isFinite(co2_obj?.co2_val)
@@ -1362,14 +1362,14 @@ class AllTogether extends Simulation {
       : "--";
 
     /*** setup model URL ***/
-    var urlAdd = urlPre.concat(this.state.modelStr);
-    var ind = this.state.index.toString();
-    var suffix = ind.concat(".jpg");
-    var fullUrl = urlAdd.concat(suffix);
+    const urlAdd = urlPre.concat(this.state.modelStr);
+    const ind = this.state.index.toString();
+    const suffix = ind.concat(".jpg");
+    const fullUrl = urlAdd.concat(suffix);
 
-    var precip_val = 0;
-    var temp_val = 0;
-    var ice_val = 0;
+    let precip_val = 0;
+    let temp_val = 0;
+    let ice_val = 0;
 
     /*** Set avg db values ***/
     if (this.state.useArray === 3) {
@@ -1377,7 +1377,7 @@ class AllTogether extends Simulation {
       temp_val = this.getValByIndex(this.state.tempAvg, this.state.index);
       ice_val = this.getValByIndex(this.state.iceAvg, this.state.index);
     } else {
-      var coord_index = this.getDBIndex(dbX, dbY);
+      const coord_index = this.getDBIndex(dbX, dbY);
       if (this.state.precipAvgAllCoords.length > coord_index) {
         precip_val = this.getValByCoord(
           this.state.precipAvgAllCoords,
@@ -1392,7 +1392,7 @@ class AllTogether extends Simulation {
       }
     }
 
-    var temp_pre = "Temperature: +";
+    let temp_pre = "Temperature: +";
     if (Number.isFinite(temp_val) && temp_val >= 0) temp_pre = "Temperature: +";
 
     /*ice_val *= 100;
@@ -1478,7 +1478,7 @@ class AllTogether extends Simulation {
                   style={playSplitDivStyle}
                   onClick={
                     this.state.play
-                      ? () => this.stopMusic(0)
+                      ? () => this.stopMusic(false)
                       : () => this.playMusic()
                   }
                 >
@@ -1841,7 +1841,7 @@ export default function AllTogetherWrapper(props) {
   const { navigation, route } = useNavigationShim();
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "white" }}>
+    <div style={{ minHeight: "100vh", backgroundColor: "#efefef" }}>
       <AllTogether {...props} navigation={navigation} route={route} />
     </div>
   );
