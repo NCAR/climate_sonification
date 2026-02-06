@@ -1038,7 +1038,7 @@ class EachAlone extends Simulation {
   /*** triggers sound for new lat, lon, or city picked
    *** does not include model location selection ***/
   triggerNotes = ():void => {
-    let coord_val;
+    let coord_val = 0;
     const { dbX, dbY } = this.getDBCoords();
     const coord_index = this.getDBIndex(dbX, dbY);
     if (this.state.yearData.length >= coord_index) {
@@ -1052,7 +1052,7 @@ class EachAlone extends Simulation {
     this.setupGraph();
   };
   private handleOrientationChange = (): void => {
-    void this.rotateDimensions();
+    this.rotateDimensions();
   };
 
   /*** runs on page destruction ***/

@@ -1,13 +1,14 @@
 import { prefetchImage } from "../utils/prefetchImage.js";
 import { useNavigationShim } from "../routing/useNavigationShim";
-import Axios from "axios";
+import Axios, { type AxiosResponse } from "axios";
 import PubSub from "pubsub-js";
 import { isBrowser } from "react-device-detect";
 import { Simulation } from "./Simulation";
+import type { SimulationProps } from "./Simulation";
 import * as Tone from "tone";
-import { getClosestCity, getInfo } from "../const/cities.js";
-import { RED, YELLOW, GREEN, BLUE } from "../const/color.js";
-
+import { getClosestCity, getInfo } from "../const/cities";
+import { RED, YELLOW, GREEN, BLUE } from "../const/color";
+import { AvgArr } from "../sim/dataMath.js";
 import { abortAndRenew } from "../sim/abort";
 
 import {
@@ -27,41 +28,42 @@ import {
   playUrl,
 } from "../const/url.js";
 
-function isNumeric(value) {
+function isNumeric(value: string): boolean {
   return /^-?\d+$/.test(value);
 }
 
-const transport = () => Tone.getTransport();
-/*
-let cancelYearPrecip;
-let cancelCoordPrecip;
-let cancelCoordPrecip1;
-let cancelYearTemp;
-let cancelCoordTemp;
-let cancelCoordTemp1;
-let cancelYearIce;
-let cancelCoordIce;
-let cancelCoordIce1;
+type ApiResponse<T> = { data: T };
 
-const CancelToken = Axios.CancelToken;
-*/
+type CoordArrayNum = 0 | 1 | 2;
+type ToneTransport = ReturnType<typeof Tone.getTransport>;
+type YearArrayNum = 0 | 1 | 2 | 3 | 4 | 5;
+type YearStateKey = "precipAvg" | "tempAvg" | "iceAvg" | "precip1" | "temp1" | "ice1";
+type NotesSetter = (arr: AvgArr) => void;
+
+const transport = (): ToneTransport => Tone.getTransport();
+function isCanceledAxiosError(error: unknown): boolean
+{
+  if (!error || typeof error !== "object") return false;
+  const e = error as { code?: unknown; name?: unknown };
+  return e.code === "ERR_CANCELED" || e.name === "CanceledError";
+}
 
 /*** Page class ***/
 class AllTogether extends Simulation {
-  constructor(props) {
+  constructor(props:SimulationProps) {
     super(props);
     this.state = {
       ...this.state,
       modelStr: "/combined/combined_ens",
-      precipAvg: [0],
-      tempAvg: [0],
-      iceAvg: [0],
-      precip1: [0],
-      temp1: [0],
-      ice1: [0],
-      precipAvgAllCoords: [0],
-      tempAvgAllCoords: [0],
-      iceAvgAllCoords: [0],
+      precipAvg: [] as unknown as AvgArr,
+      tempAvg: [] as unknown as AvgArr,
+      iceAvg: [] as unknown as AvgArr,
+      precip1: [] as unknown as AvgArr,
+      temp1: [] as unknown as AvgArr,
+      ice1: [] as unknown as AvgArr,
+      precipAvgAllCoords: [] as unknown as AvgArr,
+      tempAvgAllCoords: [] as unknown as AvgArr,
+      iceAvgAllCoords: [] as unknown as AvgArr,
     };
   }
   yearPrecipController: AbortController | null = null;
@@ -76,24 +78,21 @@ class AllTogether extends Simulation {
   coordTemp1Controller: AbortController | null = null;
   coordIce1Controller: AbortController | null = null;
 
-  _isYearSeriesReady = (arr) => {
-    // Your "all years for a coord" data is expected to be an array
-    // with one object at index 0 (not [0], not empty)
-    return (
-      Array.isArray(arr) &&
-      arr.length > 0 &&
-      arr[0] &&
-      typeof arr[0] === "object"
-    );
+  _isYearSeriesReady = (arr: unknown): arr is AvgArr =>
+  {
+    return Array.isArray(arr) && arr.length > 0 && typeof arr[0] === "object";
   };
 
-  _isCo2Ready = () => {
-    const item = this.state.co2data?.[this.state.index];
-    return item && typeof item === "object" && Number.isFinite(item.co2_val);
+  _isCo2Ready = (): boolean =>
+  {
+    const item = this.state.co2data[this.state.index]; 
+    const v = item?.co2_val;
+    const n = typeof v === "string" ? Number(v) : v;
+    return Number.isFinite(n);
   };
 
   /* Test precip model key */
-  testPrecipMusic = (e: React.PointerEvent | React.MouseEvent) => {
+  testPrecipMusic = (e: React.PointerEvent | React.MouseEvent):void => {
     if (
       this.state.notePlaying === 0 &&
       e.buttons === 1 &&
@@ -116,7 +115,7 @@ class AllTogether extends Simulation {
   };
 
   /* Test temp model key */
-  testTempMusic = (e: React.PointerEvent | React.MouseEvent) => {
+  testTempMusic = (e: React.PointerEvent | React.MouseEvent):void => {
     if (
       this.state.notePlaying === 0 &&
       e.buttons === 1 &&
@@ -141,7 +140,7 @@ class AllTogether extends Simulation {
   };
 
   /* Test sea ice model key */
-  testIceMusic = (e: React.PointerEvent | React.MouseEvent) => {
+  testIceMusic = (e: React.PointerEvent | React.MouseEvent):void => {
     if (
       this.state.notePlaying === 0 &&
       e.buttons === 1 &&
@@ -164,8 +163,8 @@ class AllTogether extends Simulation {
   };
 
   /*** When map coord is selected, do db query ***/
-  onPointerUp = (e: React.PointerEvent | React.MouseEvent) => {
-    this.killMapTransport(e);
+  onPointerUp = ():void => {
+    this.killMapTransport();
     if (this.state.play === 0) {
       //console.log('state ply is 0 on pointerup');
       this.doCoordHits(this.state.latitude, this.state.longitude);
@@ -173,15 +172,15 @@ class AllTogether extends Simulation {
   };
 
   /*** Used to calculate coords on model for onMouseDown and onMouseMove ***/
-  onMouseDown = (e: React.PointerEvent | React.MouseEvent) => {
+  onMouseDown = (e: React.MouseEvent | React.PointerEvent): void => {
     if (e.buttons !== 1) {
-      return -1;
+      return;
     }
     if (this.state.play === 1) {
       this.stopMusic(false);
     }
     if (this.state.notePlaying !== 0) {
-      return -1;
+      return;
     }
     const modelSplit = Math.floor(
       (this.state.pageBottom * this.state.MAPVERTDIV) / 2,
@@ -280,17 +279,13 @@ class AllTogether extends Simulation {
         val1,
         val2,
         val3,
-        val4,
-        this.state.index,
-        this.state.precipAvg,
-        this.state.tempAvg,
-        this.state.iceAvg,
+        val4
       );
     }
   };
 
   /*** stops music ***/
-  stopMusic = (terminate?: boolean) => {
+  stopMusic = (terminate?: boolean):void => {
     this.setState({ play: 0, playButton: playUrl });
     transport().stop();
     transport().cancel(0);
@@ -300,19 +295,19 @@ class AllTogether extends Simulation {
   };
 
   /*** runs on initial render ***/
-  componentDidMount = () => {
+  componentDidMount = ():void => {
     this.co2Api();
 
     this.updateDimensions();
 
     togetherArtifactImgs.forEach((picture) => {
-      prefetchImage(picture).catch((error) => {
+      prefetchImage(picture).catch((error:unknown) => {
         console.error("Image prefetch failed for", picture, error);
       });
     });
 
     combinedImgs.forEach((picture) => {
-      prefetchImage(picture).catch((error) => {
+      prefetchImage(picture).catch((error: unknown) => {
         console.error("Image prefetch failed for", picture, error);
       });
     });
@@ -325,7 +320,11 @@ class AllTogether extends Simulation {
     this.doYearHits(this.state.index + 1920);
     this.setAllegro();
   };
-  componentDidUpdate(prevProps, prevState) {
+  componentDidUpdate(
+    prevProps: Readonly<this["props"]>,
+    prevState: Readonly<typeof this.state>,
+  ): void
+  {
     // Only redraw when inputs to the graph change
     const graphInputsChanged =
       prevState.index !== this.state.index ||
@@ -348,9 +347,7 @@ class AllTogether extends Simulation {
   }
 
   /*** Write to graph ***/
-  updateGraph() {
-    // canvas must exist
-    if (!this.graphRef?.current) return;
+  updateGraph():void {
 
     // must have a valid index range
     if (!(this.state.index >= 0 && this.state.index <= 180)) return;
@@ -370,7 +367,11 @@ class AllTogether extends Simulation {
       return;
     }
 
-    const ctx = this.graphRef.current.getContext("2d");
+    // canvas must exist
+    const canvas = this.graphRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const { step, avg, co2_median, co2_range, co2_avg } = this.getGraphDims();
@@ -523,8 +524,8 @@ class AllTogether extends Simulation {
     // ===== CO2 =====
     ctx.beginPath();
     for (let co2Ind = 1; co2Ind <= this.state.index; co2Ind++) {
-      const prev = this.state.co2data[co2Ind - 1]?.co2_val;
-      const curr = this.state.co2data[co2Ind]?.co2_val;
+      const prev = this.state.co2data[co2Ind - 1].co2_val;
+      const curr = this.state.co2data[co2Ind].co2_val;
       if (!Number.isFinite(prev) || !Number.isFinite(curr)) continue;
 
       ctx.moveTo(
@@ -543,7 +544,7 @@ class AllTogether extends Simulation {
 
   /*** called when the window is resized
    *** see EachAlone for let descriptions***/
-  updateDimensions = () => {
+  updateDimensions = ():void => {
     const newheight = window.innerHeight;
     const newwidth = window.innerWidth;
 
@@ -585,52 +586,53 @@ class AllTogether extends Simulation {
   };
 
   /*** get all avg precip values for a specific year ***/
-  precipYearApi = (request) => {
-    this.yearPrecipController = abortAndRenew(this.yearPrecipController);
-
-    Axios.get(request, { signal: this.yearPrecipController.signal })
-      .then((res) => this.setAvgAllCoords(res, 0))
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
-        console.error("precipYearApi failed:", error);
+  precipYearApi = (request:string):void => {
+    const controller = (this.yearPrecipController = abortAndRenew(this.yearPrecipController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllCoords(res, 0) })
+      .catch((error:unknown) => {
+        if (isCanceledAxiosError(error)) return;
+        console.error("year precip failed", error);
       });
   };
 
   /*** get all avg temp values for a specific year ***/
-  tempYearApi = (request) => {
-    this.yearTempController = abortAndRenew(this.yearTempController);
-
-    Axios.get(request, { signal: this.yearTempController.signal })
-      .then((res) => this.setAvgAllCoords(res, 1))
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
-        console.error("tempYearApi failed:", error);
+  tempYearApi = (request:string):void =>
+  {
+    const controller = (this.yearTempController = abortAndRenew(this.yearTempController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllCoords(res, 1) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("year temp failed", error);
       });
   };
 
   /*** get all avg sea ice values for a specific year ***/
-  iceYearApi = (request) => {
-    this.yearIceController = abortAndRenew(this.yearIceController);
-
-    Axios.get(request, { signal: this.yearIceController.signal })
-      .then((res) => this.setAvgAllCoords(res, 2))
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
-        console.error("iceYearApi failed:", error);
+  iceYearApi = (request: string): void =>
+  {
+    const controller = (this.yearIceController = abortAndRenew(this.yearIceController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllCoords(res, 2) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("year ice failed", error);
       });
   };
 
   /*** save response for specific year ***/
-  setAvgAllCoords = (res, arrayNum) => {
-    const data = res.data.data;
+  setAvgAllCoords = (res: AxiosResponse<ApiResponse<AvgArr>>,
+    arrayNum: CoordArrayNum,):void => {
+    const data: AvgArr = res.data.data;
     if (arrayNum === 0) {
       this.setState({ precipAvgAllCoords: [...data] });
     } else if (arrayNum === 1) {
       this.setState({ tempAvgAllCoords: [...data] });
-    } else if (arrayNum === 2) {
+    } else
+    {
+      //if (arrayNum === 2){
       this.setState({ iceAvgAllCoords: [...data] });
     }
     if (this.state.play === 0) {
@@ -640,7 +642,8 @@ class AllTogether extends Simulation {
   };
 
   /*** query db for all coords at a specific year ***/
-  doYearHits(year) {
+  doYearHits(year: number): void
+  {
     if (year >= 1920 && year <= 2100) {
       const intermediate0 = dbUrl.concat("precipavg/year/");
       const request0 = intermediate0.concat(year.toString(10));
@@ -657,9 +660,10 @@ class AllTogether extends Simulation {
   }
 
   /*** change lat text from input ***/
-  onChangeLat = (event) => {
+  onChangeLat = (event: React.ChangeEvent<HTMLInputElement>): void =>
+  {
     const newval = event.target.value;
-    if (this.state.play === 0 && isNumeric(newval)) {
+    if (isNumeric(newval)) {
       const parsedval = parseInt(newval);
       if (parsedval >= -90 && parsedval <= 90) {
         this.doCoordHits(parsedval, this.state.longitude);
@@ -677,9 +681,10 @@ class AllTogether extends Simulation {
   };
 
   /*** change lon text from input ***/
-  onChangeLon = (event) => {
+  onChangeLon = (event: React.ChangeEvent<HTMLInputElement>): void =>
+  {
     const newval = event.target.value;
-    if (this.state.play === 0 && isNumeric(newval)) {
+    if (isNumeric(newval)) {
       const parsedval = parseInt(newval);
       if (parsedval >= -180 && parsedval <= 180) {
         this.doCoordHits(this.state.latitude, parsedval);
@@ -697,7 +702,7 @@ class AllTogether extends Simulation {
   };
 
   /*** runs when new lat / lon typed or city selected ***/
-  triggerNotes = () => {
+  triggerNotes = ():void => {
     let precip_val, temp_val, ice_val;
     const { dbX, dbY } = this.getDBCoords();
     const coord_index = this.getDBIndex(dbX, dbY);
@@ -721,99 +726,93 @@ class AllTogether extends Simulation {
   };
 
   /*** request avg precip data ***/
-  precipCoordApi = (request) => {
-    this.coordPrecipAvgController = abortAndRenew(
-      this.coordPrecipAvgController,
-    );
-
-    Axios.get(request, { signal: this.coordPrecipAvgController.signal })
-      .then((res) => this.setAvgAllYears(res, 0))
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
-        console.error("precipCoordApi failed:", error);
+  precipCoordApi = (request:string):void =>
+  {
+    const controller = (this.coordPrecipAvgController = abortAndRenew(this.coordPrecipAvgController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllYears(res, 0) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("coord precip failed", error);
       });
   };
 
   /*** request 001 precip data ***/
-  precipCoordApi1 = (request) => {
-    this.coordPrecip1Controller = abortAndRenew(
-      this.coordPrecip1Controller,
-    );
-
-    Axios.get(request, { signal: this.coordPrecip1Controller.signal })
-      .then((res) => this.setAvgAllYears(res, 3))
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
-        console.error("precipCoordApi1 failed:", error);
+  precipCoordApi1 = (request: string): void =>
+  {
+    const controller = (this.coordPrecip1Controller = abortAndRenew(this.coordPrecip1Controller));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllYears(res, 3) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("coord precip1 failed", error);
       });
   };
 
   /*** request avg temp data ***/
-  tempCoordApi = (request) => {
-    this.coordTempAvgController = abortAndRenew(
-      this.coordTempAvgController,
-    );
-
-    Axios.get(request, { signal: this.coordTempAvgController.signal })
-      .then((res) => this.setAvgAllYears(res, 1))
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
-        console.error("tempCoordApi failed:", error);
+  tempCoordApi = (request: string): void =>
+  {
+    const controller = (this.coordTempAvgController = abortAndRenew(this.coordTempAvgController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllYears(res, 1) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("coord temp failed", error);
       });
   };
 
   /*** request 001 temp data ***/
-  tempCoordApi1 = (request) => {
-    this.coordTemp1Controller = abortAndRenew(this.coordTemp1Controller);
-
-    Axios.get(request, { signal: this.coordTemp1Controller.signal })
-      .then((res) => this.setAvgAllYears(res, 4))
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
-        console.error("tempCoordApi1 failed:", error);
+  tempCoordApi1 = (request: string): void =>
+  {
+    const controller = (this.coordTemp1Controller = abortAndRenew(this.coordTemp1Controller));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllYears(res, 4) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("coord temp 1 failed", error);
       });
   };
 
   /*** request avg sea ice data ***/
-  iceCoordApi = (request) => {
-    this.coordIceAvgController = abortAndRenew(
-      this.coordIceAvgController,
-    );
-
-    Axios.get(request, { signal: this.coordIceAvgController.signal })
-      .then((res) => this.setAvgAllYears(res, 2))
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
-        console.error("iceCoordApi failed:", error);
+  iceCoordApi = (request: string): void =>
+  {
+    const controller = (this.coordIceAvgController = abortAndRenew(this.coordIceAvgController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllYears(res, 2) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("coord ice failed", error);
       });
   };
 
   /*** request 001 sea ice data ***/
-  iceCoordApi1 = (request) => {
-    this.coordIce1Controller = abortAndRenew(this.coordIce1Controller);
-
-    Axios.get(request, { signal: this.coordIce1Controller.signal })
-      .then((res) => this.setAvgAllYears(res, 5))
-      .catch((error) => {
-        if (error?.code === "ERR_CANCELED" || error?.name === "CanceledError")
-          return;
-        console.error("iceCoordApi1 failed:", error);
+  iceCoordApi1 = (request: string): void =>
+  {
+    const controller = (this.coordIce1Controller = abortAndRenew(this.coordIce1Controller));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllYears(res, 5) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("coord ice1 failed", error);
       });
   };
 
   /*** save data used for music ***/
-  /*** save data used for music ***/
-  setAvgAllYears = (res, arrayNum) => {
-    const data = res.data.data;
+  setAvgAllYears = (
+    res: AxiosResponse<ApiResponse<AvgArr>>,
+    arrayNum: YearArrayNum,
+  ): void => {
+    const data: AvgArr = res.data.data;
 
     // Choose which state key to update and which notes setter to call
-    let stateKey = null;
-    let notesSetter = null;
+    let stateKey: YearStateKey;
+    let notesSetter: NotesSetter;
 
     if (arrayNum === 0) {
       stateKey = "precipAvg";
@@ -830,29 +829,33 @@ class AllTogether extends Simulation {
     } else if (arrayNum === 4) {
       stateKey = "temp1";
       notesSetter = this.setTempNotes1;
-    } else if (arrayNum === 5) {
+    } else
+    {
+      //if (arrayNum === 5){
       stateKey = "ice1";
       notesSetter = this.setIceNotes1;
-    } else {
+    }/* else {
       console.warn("setAvgAllYears called with unexpected arrayNum:", arrayNum);
       return;
-    }
+    }*/
 
     // 1) Update the dataset + decrement waiting safely
     this.setState(
-      (prev) => ({
-        [stateKey]: Array.isArray(data) ? [...data] : [0],
-        waiting: Math.max(0, (prev.waiting ?? 0) - 1),
-      }),
-      () => {
-        // 2) Build notes from the same payload (synchronous)
+      (prev) =>
+        ({
+          [stateKey]: data, // data is AvgArr, no Array.isArray, no [0], no spread needed
+          waiting: Math.max(0, prev.waiting - 1), // remove ?? 0
+        }) as Pick<typeof this.state, typeof stateKey | "waiting">,
+      () =>
+      {
         notesSetter(data);
       },
     );
   };
 
   /*** query db for all years of a specific coord ***/
-  doCoordHits(lat, lon) {
+  doCoordHits(lat: number, lon: number): void
+  {
     const closestcity = getClosestCity(lat, lon);
     const { dbX, dbY } = this.getDBCoords();
     this.setState({
@@ -911,7 +914,7 @@ class AllTogether extends Simulation {
   }
 
   /*** Run this when play button is pressed ***/
-  playMusic = () => {
+  playMusic = ():void => {
     if (this.state.waiting > 0) {
       //console.log('waiting');
       return;
@@ -948,7 +951,7 @@ class AllTogether extends Simulation {
     const precipPattern = new Tone.Pattern((time, note) => {
       precipsynth.triggerAttackRelease(note, "16n", time);
       // bind incrementing
-      Tone.Draw.schedule(() => {
+      Tone.getDraw().schedule(() => {
         this.incrementIndex();
       }, time);
     }, precipNotes);
@@ -1011,21 +1014,18 @@ class AllTogether extends Simulation {
           }
           transport().start("+0");
         })
-        .catch((error) => console.error(error));
+        .catch((error: unknown) =>
+        { console.error(error) });
     }
   };
 
   /*** play notes ***/
   playTogetherMapNotes = (
-    val1,
-    val2,
-    val3,
-    val4,
-    index,
-    data1,
-    data2,
-    data3,
-  ) => {
+    val1:number,
+    val2: number,
+    val3: number,
+    val4: number
+  ):void => {
     const synth0 = this.getSynth(0);
     const synth1 = this.getSynth(1);
     const synth2 = this.getSynth(2);
@@ -1035,13 +1035,13 @@ class AllTogether extends Simulation {
     const note2 = this.getNote(2, val3);
     const pianoNote = this.getNote(3, val4);
     this.setState({ notePlaying: 1 });
-    transport().scheduleOnce((time) => {
+    transport().scheduleOnce(() => {
       synth0.triggerAttackRelease(note0, "16n");
       synth1.triggerAttackRelease(note1, "16n");
       synth2.triggerAttackRelease(note2, "16n");
       piano.triggerAttackRelease(pianoNote, "16n");
     }, "+0");
-    transport().scheduleOnce((time) => {
+    transport().scheduleOnce(() => {
       this.setState({ notePlaying: 0 });
       synth0.dispose();
       synth1.dispose();
@@ -1051,7 +1051,12 @@ class AllTogether extends Simulation {
   };
 
   /*** get styles only for this page ***/
-  getTogetherStyles(mw, ch, cw) {
+  getTogetherStyles = (mw: number, ch: number, cw: number):
+    {
+      largeControlBlockStyle: React.CSSProperties;
+      graphHeight: number;
+      graphWidth: number;
+    } => {
     const modelWidth = mw;
     const controlHeight = ch;
     const controlWidth = cw;
@@ -1080,14 +1085,14 @@ class AllTogether extends Simulation {
   }
 
   /*** for year slider ***/
-  updateYearVals = () => {
+  updateYearVals = ():void => {
     if (this.state.play === 0) {
       this.doYearHits(this.state.index + 1920);
     }
   };
 
   /*** for chaning city ***/
-  changeToCity = (event) => {
+  changeToCity = (event: React.ChangeEvent<HTMLSelectElement>): void => {
     const city = event.target.value;
     const cityinfo = getInfo(city);
     const lat = cityinfo.latitude;
@@ -1106,7 +1111,7 @@ class AllTogether extends Simulation {
   };
 
   /*** runs on page close ***/
-  componentWillUnmount = () => {
+  componentWillUnmount = ():void => {
     try {
       // stop scheduled events + reset timeline
       transport().stop();
@@ -1139,23 +1144,31 @@ class AllTogether extends Simulation {
   };
 
   /*** for playing model keys ***/
-  setupPrecipTransport = (e) => {
+  setupPrecipTransport = (e: React.PointerEvent<HTMLDivElement>):void => {
     transport().start("+0");
     this.testPrecipMusic(e);
   };
 
-  setupTempTransport = (e) => {
+  setupTempTransport = (e: React.PointerEvent<HTMLDivElement>):void => {
     transport().start("+0");
     this.testTempMusic(e);
   };
 
-  setupIceTransport = (e) => {
+  setupIceTransport = (e: React.PointerEvent<HTMLDivElement>):void => {
     transport().start("+0");
     this.testIceMusic(e);
   };
 
   /*** get locations for crosshair ***/
-  getLocations = () => {
+  getLocations = ():
+    {
+      location1: React.CSSProperties;
+      location2: React.CSSProperties;
+      location3: React.CSSProperties;
+      location4: React.CSSProperties;
+      location5: React.CSSProperties;
+      location6: React.CSSProperties;
+    } => {
     /* A bunch of variables used to calculate crosshair position */
     const fsize = 12;
     const modelSplit = Math.floor(
@@ -1339,7 +1352,7 @@ class AllTogether extends Simulation {
   };
 
   /*** navigate to about page ***/
-  openAbout = () => {
+  openAbout = ():void => {
     const { navigation } = this.props;
     if (this.state.play === 1) {
       this.stopMusic(true);
@@ -1348,7 +1361,7 @@ class AllTogether extends Simulation {
   };
 
   /*** runs on state update ***/
-  render() {
+  render(): React.JSX.Element {
     const { location1, location2, location3, location4, location5, location6 } =
       this.getLocations();
 
@@ -1356,7 +1369,7 @@ class AllTogether extends Simulation {
 
     const { dbX, dbY } = this.getDBCoords();
 
-    const co2_obj = this.state.co2data?.[this.state.index];
+    const co2_obj = this.state.co2data[this.state.index];
     const co2val = Number.isFinite(co2_obj?.co2_val)
       ? Math.round(co2_obj.co2_val)
       : "--";
@@ -1478,8 +1491,8 @@ class AllTogether extends Simulation {
                   style={playSplitDivStyle}
                   onClick={
                     this.state.play
-                      ? () => this.stopMusic(false)
-                      : () => this.playMusic()
+                      ? (): void => { this.stopMusic(false) }
+                      : (): void => { this.playMusic() }
                   }
                 >
                   <img
@@ -1646,7 +1659,7 @@ class AllTogether extends Simulation {
                 <div style={quarterControlStyle} />
                 <button
                   style={quarterControlStyle}
-                  onClick={() => this.openAbout()}
+                  onClick={this.openAbout}
                 >
                   <span style={aboutButton}>FAQ</span>
                 </button>
@@ -1657,7 +1670,7 @@ class AllTogether extends Simulation {
                 <img style={keyContainer} alt="graph key" src={graphKey} />
               </div>
 
-              <button style={dataBlockStyle} onClick={() => this.callHome()}>
+              <button style={dataBlockStyle} onClick={this.callHome}>
                 <img
                   style={dataBlockStyle}
                   alt="home button"
@@ -1837,7 +1850,8 @@ class AllTogether extends Simulation {
 }
 
 /*** class wrapper for naviagion functionality ***/
-export default function AllTogetherWrapper(props) {
+type AllTogetherWrapperProps = Record<string, unknown>;
+export default function AllTogetherWrapper(props: AllTogetherWrapperProps): React.JSX.Element  {
   const { navigation, route } = useNavigationShim();
 
   return (

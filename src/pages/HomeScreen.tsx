@@ -5,8 +5,10 @@ import { isBrowser, isMobile } from "react-device-detect";
 import { eachAloneButton, allTogetherButton, qrImg } from "../const/url";
 import "./HomeScreen.css";
 
-function redirect(): void {
-  if (isMobile) {
+function redirect(): void
+{
+  if (isMobile)
+  {
     window.location.href =
       "https://news.ucar.edu/123108/40-earths-ncars-large-ensemble-reveals-staggering-climate-variability";
   }
@@ -16,58 +18,62 @@ type HomeScreenProps = {
   navigation: Navigation;
 };
 
-function HomeScreen({ navigation }: HomeScreenProps) {
+
+function HomeScreen({ navigation }: HomeScreenProps): React.JSX.Element
+{
   // Mirrors the bits of Page state HomeScreen relied on
   const [pageBottom, setPageBottom] = useState<number>(window.innerHeight);
   const [pageRight, setPageRight] = useState<number>(window.innerWidth);
-  const [pageBottomMax, setPageBottomMax] = useState<number>(
-    window.innerHeight,
-  );
-  const [pageRightMax, setPageRightMax] = useState<number>(window.innerWidth);
 
-  const updateDimensions = useCallback((): void => {
-    const newheight = window.innerHeight;
-    const newwidth = window.innerWidth;
-    setPageBottom(newheight - 1);
-    setPageRight(newwidth - 1);
+  const getWindowHeight = (): number =>
+    typeof window === "undefined" ? 0 : window.innerHeight;
+
+  const getWindowWidth = (): number =>
+    typeof window === "undefined" ? 0 : window.innerWidth;
+  const updateDimensions = useCallback((): void =>
+  {
+    const newHeight = getWindowHeight();
+    const newWidth = getWindowWidth();
+    setPageBottom(newHeight - 1);
+    setPageRight(newWidth - 1);
   }, []);
 
-  const rotateDimensions = useCallback(async (): Promise<void> => {
-    // matches your timer(1000) behavior without depending on Page.jsx
-    await new Promise<void>((res) => setTimeout(res, 1000));
-    window.scrollTo(0, 0);
 
-    // NOTE: window.resizeTo may be ignored by most browsers; kept for parity
-    try {
-      window.resizeTo(pageBottom, pageRight);
-    } catch {
-      // ignore
-    }
+  const rotateDimensions = useCallback((): void =>
+  {
+    void (async (): Promise<void> =>
+    {
+      await new Promise<void>((res) => setTimeout(res, 1000));
+      window.scrollTo(0, 0);
 
-    window.focus();
-    setPageBottom(window.innerHeight);
-    setPageRight(window.innerWidth);
+      // NOTE: resizeTo is ignored by many browsers; kept for parity with your old behavior
+      try
+      {
+        window.resizeTo(pageBottom, pageRight);
+      } catch
+      {
+        // ignore
+      }
+
+      window.focus();
+      setPageBottom(getWindowHeight());
+      setPageRight(getWindowWidth());
+    })();
   }, [pageBottom, pageRight]);
 
-  useEffect(() => {
-    if (isBrowser) {
-      window.addEventListener("resize", updateDimensions);
-    }
+  useEffect(() =>
+  {
+    if (!isBrowser) return;
+
+    window.addEventListener("resize", updateDimensions);
     window.addEventListener("orientationchange", rotateDimensions);
 
-    setPageBottomMax(window.innerHeight);
-    setPageRightMax(window.innerWidth);
-    updateDimensions();
-
-    return () => {
-      if (isBrowser) {
-        window.removeEventListener("resize", updateDimensions);
-      }
+    return ():void =>
+    {
+      window.removeEventListener("resize", updateDimensions);
       window.removeEventListener("orientationchange", rotateDimensions);
     };
   }, [updateDimensions, rotateDimensions]);
-
-  // pageBottom/pageRight/pageBottomMax/pageRightMax currently unused in render
 
   return (
     <div className={"hp-container"}>
@@ -81,7 +87,10 @@ function HomeScreen({ navigation }: HomeScreenProps) {
 
       <div className={"hp-btn-container"}>
         <button
-          onClick={() => navigation.navigate("EachAlone")}
+          onClick={() =>
+          {
+            navigation.navigate("EachAlone");
+          }}
           className={"hpBtn"}
         >
           <img
@@ -92,7 +101,10 @@ function HomeScreen({ navigation }: HomeScreenProps) {
         </button>
 
         <button
-          onClick={() => navigation.navigate("AllTogether")}
+          onClick={() =>
+          {
+            navigation.navigate("AllTogether");
+          }}
           className={"hpBtn"}
         >
           <img
@@ -117,7 +129,10 @@ function HomeScreen({ navigation }: HomeScreenProps) {
   );
 }
 
-export default function HomeScreenWrapper(props: Record<string, unknown>) {
+export default function HomeScreenWrapper(
+  props: Record<string, unknown>,
+): React.JSX.Element
+{
   const { navigation } = useNavigationShim();
 
   return (

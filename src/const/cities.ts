@@ -82,9 +82,9 @@ const cities: City[] = [
   { city: "Warsaw", latitude: 52, longitude: 21 },
 ];
 
-export function getClosestCity(lat: number, lon: number): string | undefined {
+export function getClosestCity(lat: number, lon: number): string {
   let closestdist = Number.MAX_VALUE;
-  let closestcity: string | undefined;
+  let closestcity: string = "";
 
   for (const city of cities) {
     const thislat = city.latitude;

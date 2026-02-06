@@ -132,12 +132,15 @@ type SimulationState = {
   state: NoteType;  
   modelStr: string;
 
-  precipAvg?: number;
-  tempAvg?: number;
-  iceAvg?: number;
-  precip1?: number;
-  temp1?: number;
-  ice1?: number;
+  precipAvg: AvgArr;
+  tempAvg: AvgArr;
+  iceAvg: AvgArr;
+  precip1: AvgArr;
+  temp1: AvgArr;
+  ice1: AvgArr;
+  precipAvgAllCoords: AvgArr;
+  tempAvgAllCoords: AvgArr;
+  iceAvgAllCoords: AvgArr;
 
   iceBool?: boolean;
   tempBool?: boolean;
@@ -845,13 +848,16 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
   }
 
   /*** Called when the window is rotated on mobile ***/
-  rotateDimensions = async (): Promise<void> =>
+  rotateDimensions = (): void =>
   {
-    await timer(1000);
-    window.scrollTo(0, 0);
-    window.resizeTo(this.state.pageBottom, this.state.pageRight);
-    window.focus();
-    this.updateDimensions();
+    void (async (): Promise<void> =>
+    {
+      await timer(1000);
+      window.scrollTo(0, 0);
+      window.resizeTo(this.state.pageBottom, this.state.pageRight);
+      window.focus();
+      this.updateDimensions();
+    })();
   };
 
   /*** Huge section of common styling, relies on the page size and what the DIVs are set at ***/
