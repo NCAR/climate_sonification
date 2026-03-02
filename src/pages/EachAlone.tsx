@@ -33,7 +33,7 @@ import {
   timelineImg,
   aloneArtifactImgs,
   pauseUrl,
-  playUrl,
+  playUrl
 } from "../const/url.js";
 
 function isNumeric(value: string): boolean {
@@ -645,7 +645,7 @@ class EachAlone extends Simulation {
         intermediate = dbUrl.concat("seaiceavg/year/");
       }
       const request = intermediate.concat(year.toString(10));
-      console.log(request);
+      //console.log(request);
       this.yearApi(request.concat(".txt"));
     }
   }
@@ -1113,6 +1113,16 @@ class EachAlone extends Simulation {
     this.updateGraph();
   }
 
+  /*** for playing model keys ***/
+  setupKeyTransport = (e: React.PointerEvent<HTMLDivElement>): void =>
+  {
+    transport().start("+0");
+
+    console.log(e);
+    this.testMusic(e);
+  };
+
+
   /*** Picks where to put crosshairs ***/
   getLocations = (): {
     location1: React.CSSProperties;
@@ -1314,7 +1324,7 @@ class EachAlone extends Simulation {
   openAbout = ():void => {
     const { navigation } = this.props;
     if (this.state.play === 1) {
-      this.stopMusic(true);
+      this.stopMusic(false);
     }
     navigation.navigate("About");
   };
@@ -1719,7 +1729,7 @@ class EachAlone extends Simulation {
 
               <div
                 style={dataThirdStyle}
-                onPointerDown={this.setupMapTransport}
+                onPointerDown={this.setupKeyTransport}
                 onPointerMove={this.testMusic}
                 onPointerUp={this.killTransport}
               >

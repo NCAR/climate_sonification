@@ -1,6 +1,6 @@
 import * as React from "react";
 import * as Tone from "tone";
-import { playUrl, dbUrl } from "../const/url.js";
+import { playUrl, dbUrl, loading } from "../const/url.js";
 import Axios from "axios";
 import { getScale } from "../const/scales.js";
 import { timer } from "../sim/timer";
@@ -171,7 +171,7 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
       pageRightMax: window.innerWidth,
       co2data: [],
       PADDING,
-      loadingSrc:'',
+      loadingSrc:loading,
       index: 0,
       play: 0,
       waiting: 0,
@@ -222,7 +222,9 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
   getPlayButton = (): string =>
   {
     const { waiting, playButton, loadingSrc } = this.state;
-
+    console.log(waiting);
+    console.log(playButton);
+    console.log(loadingSrc);
     if (waiting !== 0) {
       return loadingSrc;
     }

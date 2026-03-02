@@ -25,7 +25,7 @@ import {
   timelineImg,
   togetherArtifactImgs,
   pauseUrl,
-  playUrl,
+  playUrl
 } from "../const/url.js";
 
 function isNumeric(value: string): boolean {
@@ -1355,7 +1355,7 @@ class AllTogether extends Simulation {
   openAbout = ():void => {
     const { navigation } = this.props;
     if (this.state.play === 1) {
-      this.stopMusic(true);
+      this.stopMusic(false);
     }
     navigation.navigate("About");
   };
