@@ -76,7 +76,7 @@ export type SimulationProps = {
   route: Route;
 };
 
-type Co2Row = { co2_val: number | string };
+type Co2Row = { co2_val: number };
 
 type SimulationState = {
 
@@ -155,7 +155,7 @@ type SimulationState = {
 /*** Shared class for EachAlone and AllTogether class ***/
 export abstract class Simulation extends React.Component<SimulationProps, SimulationState>
 {
-  graphRef: React.RefObject<HTMLCanvasElement>;
+  graphRef: React.RefObject<HTMLCanvasElement | null>;
   constructor(props:SimulationProps)
   {
     super(props);
@@ -202,6 +202,15 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
       tempNotes2: [],
       iceNotes2: [],
       pianoNotes: [],
+      precipAvg: [{} as AvgRow],
+      tempAvg: [{} as AvgRow],
+      iceAvg: [{} as AvgRow],
+      precip1: [{} as AvgRow],
+      temp1: [{} as AvgRow],
+      ice1: [{} as AvgRow],
+      precipAvgAllCoords: [{} as AvgRow],
+      tempAvgAllCoords: [{} as AvgRow],
+      iceAvgAllCoords: [{} as AvgRow],
       yearData: [{} as AvgRow],
       coordData: [{} as AvgRow],
       coordData1: [{} as AvgRow],
@@ -222,9 +231,6 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
   getPlayButton = (): string =>
   {
     const { waiting, playButton, loadingSrc } = this.state;
-    console.log(waiting);
-    console.log(playButton);
-    console.log(loadingSrc);
     if (waiting !== 0) {
       return loadingSrc;
     }

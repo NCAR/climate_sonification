@@ -274,13 +274,18 @@ class AllTogether extends Simulation {
       const val1 = this.getValByCoord(this.state.precipAvgAllCoords, coord_index);
       const val2 = this.getValByCoord(this.state.tempAvgAllCoords, coord_index);
       const val3 = this.getValByCoord(this.state.iceAvgAllCoords, coord_index);
-      const val4 = this.state.co2data[this.state.index].co2_val;
-      this.playTogetherMapNotes(
-        val1,
-        val2,
-        val3,
-        val4
-      );
+      const item = this.state.co2data[this.state.index];
+      if (item)
+      {
+        const val4 = item.co2_val;
+        this.playTogetherMapNotes(
+          val1,
+          val2,
+          val3,
+          val4
+        );
+      }
+      
     }
   };
 
@@ -523,21 +528,28 @@ class AllTogether extends Simulation {
 
     // ===== CO2 =====
     ctx.beginPath();
-    for (let co2Ind = 1; co2Ind <= this.state.index; co2Ind++) {
-      const prev = this.state.co2data[co2Ind - 1].co2_val;
-      const curr = this.state.co2data[co2Ind].co2_val;
-      if (!Number.isFinite(prev) || !Number.isFinite(curr)) continue;
+    for (let co2Ind = 1; co2Ind <= this.state.index; co2Ind++)
+    {
+      const prevItem = this.state.co2data[co2Ind - 1];
+      const currItem = this.state.co2data[co2Ind];
+      if (prevItem && currItem)
+      {
+        const prev = prevItem.co2_val;
+        const curr = currItem.co2_val;
 
-      ctx.moveTo(
-        1 + step * (co2Ind - 1),
-        co2_avg - (co2_avg * (prev - co2_median)) / co2_range,
-      );
-      ctx.lineTo(
-        1 + step * co2Ind,
-        co2_avg - (co2_avg * (curr - co2_median)) / co2_range,
-      );
-      ctx.strokeStyle = YELLOW;
-      ctx.lineWidth = 3;
+        if (!Number.isFinite(prev) || !Number.isFinite(curr)) continue;
+
+        ctx.moveTo(
+          1 + step * (co2Ind - 1),
+          co2_avg - (co2_avg * (prev - co2_median)) / co2_range,
+        );
+        ctx.lineTo(
+          1 + step * co2Ind,
+          co2_avg - (co2_avg * (curr - co2_median)) / co2_range,
+        );
+        ctx.strokeStyle = YELLOW;
+        ctx.lineWidth = 3;
+      }      
     }
     ctx.stroke();
   }
@@ -711,18 +723,25 @@ class AllTogether extends Simulation {
         this.state.precipAvgAllCoords,
         coord_index,
       );
+
+      this.triggerNoteByVal(0, precip_val);
     }
     if (this.state.tempAvgAllCoords.length > coord_index) {
       temp_val = this.getValByCoord(this.state.tempAvgAllCoords, coord_index);
+      this.triggerNoteByVal(1, temp_val);
     }
     if (this.state.iceAvgAllCoords.length > coord_index) {
       ice_val = this.getValByCoord(this.state.iceAvgAllCoords, coord_index);
+      this.triggerNoteByVal(2, ice_val);
     }
-    const co2_val = this.state.co2data[this.state.index].co2_val;
-    this.triggerNoteByVal(0, precip_val);
-    this.triggerNoteByVal(1, temp_val);
-    this.triggerNoteByVal(2, ice_val);
-    this.triggerNoteByVal(3, co2_val);
+
+    const item = this.state.co2data[this.state.index];
+    if (item)
+    {
+      const co2_val = item.co2_val;
+      this.triggerNoteByVal(3, co2_val);
+    }
+
   };
 
   /*** request avg precip data ***/
@@ -1370,7 +1389,7 @@ class AllTogether extends Simulation {
     const { dbX, dbY } = this.getDBCoords();
 
     const co2_obj = this.state.co2data[this.state.index];
-    const co2val = Number.isFinite(co2_obj?.co2_val)
+    const co2val = co2_obj !== undefined && typeof co2_obj.co2_val === 'number' && Number.isFinite(co2_obj.co2_val)
       ? Math.round(co2_obj.co2_val)
       : "--";
 
