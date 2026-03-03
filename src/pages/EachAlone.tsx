@@ -201,7 +201,7 @@ class EachAlone extends Simulation {
   onPointerUp = ():void => {
     //console.log('kill map transport on pointer up');
     //console.log('play state : '+ this.state.play);
-    this.killMapTransport();
+    this.killTransport();
     if (this.state.play === 0) {
       //console.log('do coord hits because play state was 0');
       this.doCoordHits(
@@ -692,24 +692,33 @@ class EachAlone extends Simulation {
   };
 
   /*** Triggered by closest city dropdown ***/
-  changeToCity = (event: React.ChangeEvent<HTMLSelectElement>):void => {
+  changeToCity = (event: React.ChangeEvent<HTMLSelectElement>): void =>
+  {
+
     const city = event.target.value;
     const cityinfo = getInfo(city);
     const lat = cityinfo.latitude;
     const lon = cityinfo.longitude;
 
-    this.doCoordHits(this.state.state, lat, lon);
-    this.setState({
-      latitude: lat,
-      longitude: lon,
-      useArray: 0,
-    });
-    this.setupGraph();
-    this.triggerNotes();
-
-    if (this.state.play === 1) {
-      this.stopMusic(false);
-    }
+    this.setState(
+      {
+        latitude: lat,
+        longitude: lon,
+        useArray: 0
+      },
+      () =>
+      {
+        console.log('changetocity');
+        console.log(lat, lon);
+        this.doCoordHits(this.state.state, lat, lon);
+        this.setupGraph();
+        this.triggerNotes();
+        if (this.state.play === 1)
+        {
+          this.stopMusic();
+        }
+      }
+    );
   };
 
   /*** request all years for a specific coordinate, using avg table
@@ -772,6 +781,9 @@ class EachAlone extends Simulation {
   /*** Get the value of every year of a coords lifespan ***/
   doCoordHits(state: number, lat: number, lon: number): void {
     const closestcity = getClosestCity(lat, lon);
+    console.log('docoordhits');
+    console.log(closestcity);
+    console.log(lat, lon);
     const { dbX, dbY } = this.getDBCoords();
     this.setState({
       latitude: Math.floor(lat),
@@ -801,13 +813,14 @@ class EachAlone extends Simulation {
 
       // set waiting once for the 3 in-flight requests
       this._setWaiting(3);
-
+      console.log(dbX, dbY);
       const request = intermediate
         .concat(dbX.toString(10))
         .concat(",")
         .concat(dbY.toString(10))
         .concat(".txt");
       this.coordApi(request);
+      console.log("coordapi: " +request);
 
       const request1 = intermediate1
         .concat(dbX.toString(10))
@@ -815,6 +828,7 @@ class EachAlone extends Simulation {
         .concat(dbY.toString(10))
         .concat(".txt");
       this.coordApi1(request1);
+      console.log("coordapi2: " + request1);
 
       const request2 = intermediate2
         .concat(dbX.toString(10))
@@ -822,6 +836,7 @@ class EachAlone extends Simulation {
         .concat(dbY.toString(10))
         .concat(".txt");
       this.coordApi2(request2);
+      console.log("coordapi2: " + request2);
     }
   }
 
@@ -946,7 +961,7 @@ class EachAlone extends Simulation {
     const notes = this.noteHelper(newind);
     const notes1 = this.noteHelper1(newind);
     const notes2 = this.noteHelper2(newind);
-    const pianoNotes = this.getPianoNotes();
+    const pianoNotes = this.getPianoNotes(newind);
 
     const notePattern = new Tone.Pattern((time, note) => {
       synth.triggerAttackRelease(note, "16n", time);

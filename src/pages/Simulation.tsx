@@ -295,28 +295,24 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
   {
     if (data.length === 0)
     {
-      //console.log("co2 data failed to load");
+      console.log("co2 data failed to load");
       return;
     }
-    const pianoNoteArr: string[] = [];
-    let co2_val:number;
-    let note: string;
+    const pianoNoteArr = [];
+    let co2_val;
+    let note;
 
-    const max = Math.min(181, data.length);
-    for (let i = 0; i < max; i++)
+    for (let i = 0; i < 181; i++)
     {
-      const row = data[i];
-      if (!row) break;
-
-      const parsed = typeof row.co2_val === "string" ? Number(row.co2_val) : row.co2_val;
-      co2_val = Number.isFinite(parsed) ? parsed : 0;
-
+      const item = data[i];
+      if (!item) continue;
+      co2_val = item.co2_val;
       note = this.getNote(3, co2_val, getScale(i));
-      pianoNoteArr.push(note);
+      pianoNoteArr.push(note)
     }
 
     this.setState({
-      pianoNotes: [...pianoNoteArr],
+      pianoNotes: [...pianoNoteArr]
     });
   };
 
@@ -721,18 +717,6 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
   };
 
   /*** stop tranport to play the map ***/
-  killMapTransport = (): void =>
-  {
-    transport().scheduleOnce(() =>
-    {
-      //console.log('killmaptransport');
-      this.setState({ notePlaying: 0 });
-      transport().cancel("+0");
-      transport().stop("+0");
-      transport().cancel();
-    }, "+2n");
-  };
-
   killTransport = (): void =>
   {
     transport().scheduleOnce(() =>
@@ -774,6 +758,8 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
   /*** return db coords from lat and lon in states ***/
   getDBCoords = (): ReturnType<typeof calcDBCoords> =>
   {
+    console.log('getdbcoords');
+    console.log(this.state.latitude, this.state.longitude);
     return calcDBCoords(this.state.latitude, this.state.longitude);
   };
 

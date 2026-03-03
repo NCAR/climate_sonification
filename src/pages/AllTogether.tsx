@@ -164,7 +164,7 @@ class AllTogether extends Simulation {
 
   /*** When map coord is selected, do db query ***/
   onPointerUp = ():void => {
-    this.killMapTransport();
+    this.killTransport();
     if (this.state.play === 0) {
       //console.log('state ply is 0 on pointerup');
       this.doCoordHits(this.state.latitude, this.state.longitude);
@@ -1111,11 +1111,20 @@ class AllTogether extends Simulation {
   };
 
   /*** for chaning city ***/
-  changeToCity = (event: React.ChangeEvent<HTMLSelectElement>): void => {
+  changeToCity = (event: React.ChangeEvent<HTMLSelectElement>): void =>
+  {
+    if (this.state.play === 1)
+    {
+      this.stopMusic(false);
+    }
+    transport().start("+0");
+    
     const city = event.target.value;
     const cityinfo = getInfo(city);
     const lat = cityinfo.latitude;
     const lon = cityinfo.longitude;
+
+
     this.doCoordHits(lat, lon);
     this.setState({
       latitude: lat,
@@ -1124,9 +1133,7 @@ class AllTogether extends Simulation {
     });
     this.setupGraph();
     this.triggerNotes();
-    if (this.state.play === 1) {
-      this.stopMusic(false);
-    }
+    
   };
 
   /*** runs on page close ***/

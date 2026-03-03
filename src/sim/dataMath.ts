@@ -51,7 +51,10 @@ export const calcDBIndex = (dbX: number, dbY: number): number => {
 export const calcDBCoords = (
   latitude: number,
   longitude: number,
-): { dbX: number; dbY: number } => {
+): { dbX: number; dbY: number } =>
+{
+  let dbX = 1;
+  let dbY = 1;
   let lat = latitude;
   let lon = longitude;
 
@@ -60,8 +63,8 @@ export const calcDBCoords = (
   if (lon >= 0) lon -= 179;
   else lon += 180;
 
-  const dbY = Math.floor(91 - lat);
-  const dbX = Math.floor(180 + lon);
+  dbY = Math.floor(91 - lat);
+  dbX = Math.floor(180 + lon);
 
   return { dbX, dbY };
 };
