@@ -1064,7 +1064,7 @@ class AllTogether extends Simulation {
     } else {
       Tone.start()
         .then(() => {
-          this.setState({ audioAvailable: true }, function ()
+          this.setState({ audioAvailable: true }, () =>
           {
             transport().cancel();
             precipPattern.start(0.001);
