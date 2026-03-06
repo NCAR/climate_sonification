@@ -35,6 +35,7 @@ import {
   pauseUrl,
   playUrl
 } from "../const/url.js";
+import { NoteType } from "../sim/noteMapping.js";
 
 function isNumeric(value: string): boolean {
   return /^-?\d+$/.test(value);
@@ -110,11 +111,12 @@ class EachAlone extends Simulation {
   /*** Run this when stop is pressed or when index === 180 ***/
   stopMusic = (terminate?:boolean):void => {
     //console.log('stopping');
-
+    this._notePlayingFlag = false; 
     this.setState(
       {
         play: 0,
         playButton: playUrl,
+        notePlaying: 0, 
       },
       () => {
         transport().stop();
@@ -263,8 +265,10 @@ class EachAlone extends Simulation {
     if (this.state.play === 1) {
       this.stopMusic(false);
     }
-    if (this.state.notePlaying !== 0) {
-      //console.log('note playing !== 0');
+    
+    if (this._notePlayingFlag)
+    {
+      console.log('notePlaying flag is true, returning early');
       return;
     }
     /* A bunch of variables used to calculate mouse position */
@@ -708,8 +712,6 @@ class EachAlone extends Simulation {
       },
       () =>
       {
-        console.log('changetocity');
-        console.log(lat, lon);
         this.doCoordHits(this.state.state, lat, lon);
         this.setupGraph();
         this.triggerNotes();
@@ -779,65 +781,71 @@ class EachAlone extends Simulation {
   };
 
   /*** Get the value of every year of a coords lifespan ***/
-  doCoordHits(state: number, lat: number, lon: number): void {
+  doCoordHits(state: number, lat: number, lon: number): void
+  {
     const closestcity = getClosestCity(lat, lon);
-    console.log('docoordhits');
-    console.log(closestcity);
-    console.log(lat, lon);
-    const { dbX, dbY } = this.getDBCoords();
     this.setState({
       latitude: Math.floor(lat),
       longitude: Math.floor(lon),
       closestCity: closestcity,
+    }, () =>
+    {
+      const { dbX, dbY } = this.getDBCoords();
+
+      /* Filter and do db hit here */
+      if (dbX <= 360 && dbX >= 1 && dbY <= 180 && dbY >= 1)
+      {
+        let intermediate = "";
+        let intermediate1 = "";
+        let intermediate2 = "";
+
+        if (state === 0)
+        {
+          intermediate = dbUrl.concat("precipavg/coord/");
+          intermediate1 = dbUrl.concat("precip001/coord/");
+          intermediate2 = dbUrl.concat("precip002/coord/");
+        } else if (state === 1)
+        {
+          intermediate = dbUrl.concat("tempavg/coord/");
+          intermediate1 = dbUrl.concat("temp001/coord/");
+          intermediate2 = dbUrl.concat("temp002/coord/");
+        } else if (state === 2)
+        {
+          intermediate = dbUrl.concat("seaiceavg/coord/");
+          intermediate1 = dbUrl.concat("seaice001/coord/");
+          intermediate2 = dbUrl.concat("seaice002/coord/");
+        }
+
+        // set waiting once for the 3 in-flight requests
+        this._setWaiting(3);
+
+        const request = intermediate
+          .concat(dbX.toString(10))
+          .concat(",")
+          .concat(dbY.toString(10))
+          .concat(".txt");
+        this.coordApi(request);
+
+
+        const request1 = intermediate1
+          .concat(dbX.toString(10))
+          .concat(",")
+          .concat(dbY.toString(10))
+          .concat(".txt");
+        this.coordApi1(request1);
+
+
+        const request2 = intermediate2
+          .concat(dbX.toString(10))
+          .concat(",")
+          .concat(dbY.toString(10))
+          .concat(".txt");
+        this.coordApi2(request2);
+
+      }
     });
 
-    /* Filter and do db hit here */
-    if (dbX <= 360 && dbX >= 1 && dbY <= 180 && dbY >= 1) {
-      let intermediate = "";
-      let intermediate1 = "";
-      let intermediate2 = "";
-      
-      if (state === 0) {
-        intermediate = dbUrl.concat("precipavg/coord/");
-        intermediate1 = dbUrl.concat("precip001/coord/");
-        intermediate2 = dbUrl.concat("precip002/coord/");
-      } else if (state === 1) {
-        intermediate = dbUrl.concat("tempavg/coord/");
-        intermediate1 = dbUrl.concat("temp001/coord/");
-        intermediate2 = dbUrl.concat("temp002/coord/");
-      } else if (state === 2) {
-        intermediate = dbUrl.concat("seaiceavg/coord/");
-        intermediate1 = dbUrl.concat("seaice001/coord/");
-        intermediate2 = dbUrl.concat("seaice002/coord/");
-      }
-
-      // set waiting once for the 3 in-flight requests
-      this._setWaiting(3);
-      console.log(dbX, dbY);
-      const request = intermediate
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.coordApi(request);
-      console.log("coordapi: " +request);
-
-      const request1 = intermediate1
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.coordApi1(request1);
-      console.log("coordapi2: " + request1);
-
-      const request2 = intermediate2
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.coordApi2(request2);
-      console.log("coordapi2: " + request2);
-    }
+    
   }
 
   /*** Start transport when mousedown on model keys ***/
@@ -936,12 +944,11 @@ class EachAlone extends Simulation {
 
   /*** Start music ***/
   playMusic = ():void => {
+    
     if (this.state.waiting > 0) {
       //console.log('waiting');
       return;
-    } else {
-      //console.log('play')
-    }
+    } 
     let newind = this.state.index;
     if (newind === 180) {
       newind = 0;
@@ -989,7 +996,9 @@ class EachAlone extends Simulation {
     pianoPattern.humanize = true;
 
     // catches most errors
-    if (this.state.audioAvailable) {
+    if (this.state.audioAvailable)
+    {
+      transport().cancel();   // evict any stale killTransport events
       notePattern.start(0);
       notePattern1.start(0);
       notePattern2.start(0);
@@ -998,7 +1007,9 @@ class EachAlone extends Simulation {
     } else {
       Tone.start()
         .then(() => {
-          this.setState({ audioAvailable: true }, function () {
+          this.setState({ audioAvailable: true }, function ()
+          {
+            transport().cancel(); 
             notePattern.start(0);
             notePattern1.start(0);
             notePattern2.start(0);
@@ -1043,11 +1054,58 @@ class EachAlone extends Simulation {
     }
     window.addEventListener("orientationchange", this.handleOrientationChange);
 
-    /* fetch data and setup window size */
-    this.doCoordHits(0, 0, 0);
-    this.doYearHits(0, this.state.index + 1920);
-    this.updateDimensions();
-    this.setAllegro();
+    // Check for saved state from About page navigation
+    const saved = sessionStorage.getItem("eachAlone_restore");
+    if (saved)
+    {
+      sessionStorage.removeItem("eachAlone_restore"); // consume it — only restore once
+      const r = JSON.parse(saved) as {
+        latitude: number;
+        longitude: number;
+        index: number;
+        state: NoteType;
+        modelStr: string;
+        precipSrc: string;
+        tempSrc: string;
+        iceSrc: string;
+        keySrc: string;
+        closestCity: string;
+        iceBool: boolean;
+        precipBool: boolean;
+        tempBool: boolean;
+      };
+
+      this.setState({
+        latitude: r.latitude,
+        longitude: r.longitude,
+        index: r.index,
+        state: r.state,
+        modelStr: r.modelStr,
+        precipSrc: r.precipSrc,
+        tempSrc: r.tempSrc,
+        iceSrc: r.iceSrc,
+        keySrc: r.keySrc,
+        closestCity: r.closestCity,
+        iceBool: r.iceBool,
+        precipBool: r.precipBool,
+        tempBool: r.tempBool
+      }, () =>
+      {
+        // Restore data for the saved coordinates and year
+        this.doCoordHits(r.state, r.latitude, r.longitude);
+        this.doYearHits(r.state, r.index + 1920);
+        this.updateDimensions();
+        this.setAllegro();
+      });
+
+    } else
+    {
+      // Normal first load
+      this.doCoordHits(0, 0, 0);
+      this.doYearHits(0, this.state.index + 1920);
+      this.updateDimensions();
+      this.setAllegro();
+    }
   };
 
   /*** triggers sound for new lat, lon, or city picked
@@ -1131,9 +1189,10 @@ class EachAlone extends Simulation {
   /*** for playing model keys ***/
   setupKeyTransport = (e: React.PointerEvent<HTMLDivElement>): void =>
   {
+    if (this.state.play === 1) return;
     transport().start("+0");
 
-    console.log(e);
+    //console.log(e);
     this.testMusic(e);
   };
 
@@ -1341,6 +1400,24 @@ class EachAlone extends Simulation {
     if (this.state.play === 1) {
       this.stopMusic(false);
     }
+
+    // Persist the user's current position before leaving
+    sessionStorage.setItem("eachAlone_restore", JSON.stringify({
+      latitude: this.state.latitude,
+      longitude: this.state.longitude,
+      index: this.state.index,
+      state: this.state.state,
+      modelStr: this.state.modelStr,
+      precipSrc: this.state.precipSrc,
+      tempSrc: this.state.tempSrc,
+      iceSrc: this.state.iceSrc,
+      keySrc: this.state.keySrc,
+      closestCity: this.state.closestCity,
+      iceBool: this.state.iceBool,
+      precipBool: this.state.precipBool,
+      tempBool: this.state.tempBool
+    }));
+    
     navigation.navigate("About");
   };
 
@@ -1350,7 +1427,14 @@ class EachAlone extends Simulation {
       this.getLocations();
 
     const playButton = this.getPlayButton();
+    const playButtonAlt =
+      this.state.waiting > 0
+        ? "loading"
+        : this.state.play === 1
+          ? "pause"
+          : "play";
 
+    
     const { dbX, dbY } = this.getDBCoords();
 
     const co2Raw = this._getCo2Val(this.state.index);
@@ -1361,7 +1445,14 @@ class EachAlone extends Simulation {
     const ind = this.state.index.toString();
     const suffix = ind.concat(".jpg");
     const fullUrl = urlAdd.concat(suffix);
-
+    const modelAltText =
+      (this.state.state === 0
+        ? "mapped precipitation data from climate model"
+        : this.state.state === 1
+          ? "mapped temperature data from climate model"
+          : "mapped sea ice data from climate model")
+      + `, year ${String(this.state.index + 1920)}, Carbon Dioxide ${String(co2val)} ppm, highlighting selected location: ${String(this.state.latitude)}, ${String(this.state.longitude)} and nearest city: ${this.state.closestCity}`;
+    
     /*** Get db value ***/
     let coord_val = 0;
     /* if useArray == 3, use the dataset that contains all years of a coord */
@@ -1520,7 +1611,7 @@ class EachAlone extends Simulation {
                 >
                   <img
                     style={playSplitDivStyle}
-                    alt="play button"
+                    alt={playButtonAlt}
                     src={playButton}
                   />
                 </button>
@@ -1549,6 +1640,7 @@ class EachAlone extends Simulation {
                     type="text"
                     style={inputControlStyle}
                     id="lat"
+                    aria-label="Latitude"
                     value={this.state.latitude}
                     onChange={this.onChangeLat}
                   />
@@ -1560,6 +1652,7 @@ class EachAlone extends Simulation {
                     type="text"
                     style={inputControlStyle}
                     id="lon"
+                    aria-label="Longitude"
                     value={this.state.longitude}
                     onChange={this.onChangeLon}
                   />
@@ -1706,7 +1799,7 @@ class EachAlone extends Simulation {
           <div style={skinnyDivStyle}>
             <img
               style={skinnyImgStyle}
-              alt=""
+              alt="Human and natural influences on climate"
               src={topSkinnyImgAlone}
               draggable="false"
             />
@@ -1727,7 +1820,7 @@ class EachAlone extends Simulation {
             >
               <img
                 src={fullUrl}
-                alt="climate model"
+                alt={modelAltText}
                 style={modelStyle}
                 draggable="false"
               />
@@ -1777,7 +1870,7 @@ class EachAlone extends Simulation {
                 step="1"
                 onChange={this.handleYear}
               />
-              <img style={timelineStyle} alt="timeline" src={timelineImg} />
+              <img style={timelineStyle} alt="Timeline" src={timelineImg} />
             </div>
           </div>
           <div

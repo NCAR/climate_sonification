@@ -156,6 +156,7 @@ type SimulationState = {
 export abstract class Simulation extends React.Component<SimulationProps, SimulationState>
 {
   graphRef: React.RefObject<HTMLCanvasElement | null>;
+  protected _notePlayingFlag = false;
   constructor(props:SimulationProps)
   {
     super(props);
@@ -665,7 +666,18 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
     const plusDelay = `+${String(delay)}`;
     const note = this.getNote(type, val, getScale(this.state.index));
     //console.log('note: ' + note);
+    this._notePlayingFlag = true; 
 
+    // Safety net: force-reset after 2 seconds no matter what
+    window.setTimeout(() =>
+    {
+      if (this._notePlayingFlag)
+      {
+        console.warn('notePlaying safety reset fired — flag was stuck');
+        this._notePlayingFlag = false;
+        this.setState({ notePlaying: 0 });
+      }
+    }, 2000);
     this.setState({ notePlaying: 1 }, () =>
     {
       //console.log('note 1: ' + this.state.notePlaying);
@@ -678,6 +690,7 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
       }, "+0");
       transport().scheduleOnce(() =>
       {
+        this._notePlayingFlag = false;   
         //console.log('pre setting note to 0')
         this.setState({ notePlaying: 0 }, () =>
         {
@@ -709,16 +722,15 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
   /*** start tranport to play the map ***/
   setupMapTransport = (e: React.MouseEvent | React.PointerEvent): void =>
   {
-    //console.log('setup map transport***');
-    ////console.log(transport().state);
     transport().start("+0");
-    this.setModerato();
+    //this.setModerato();
     this.onMouseDown(e);
   };
 
   /*** stop tranport to play the map ***/
   killTransport = (): void =>
   {
+    if (this.state.play === 1) return;
     transport().scheduleOnce(() =>
     {
       this.setState({ notePlaying: 0 });
@@ -758,8 +770,6 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
   /*** return db coords from lat and lon in states ***/
   getDBCoords = (): ReturnType<typeof calcDBCoords> =>
   {
-    console.log('getdbcoords');
-    console.log(this.state.latitude, this.state.longitude);
     return calcDBCoords(this.state.latitude, this.state.longitude);
   };
 

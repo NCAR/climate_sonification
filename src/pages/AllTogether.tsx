@@ -179,7 +179,9 @@ class AllTogether extends Simulation {
     if (this.state.play === 1) {
       this.stopMusic(false);
     }
-    if (this.state.notePlaying !== 0) {
+    if (this._notePlayingFlag)
+    {
+      console.log('notePlaying flag is true, returning early');
       return;
     }
     const modelSplit = Math.floor(
@@ -290,7 +292,9 @@ class AllTogether extends Simulation {
   };
 
   /*** stops music ***/
-  stopMusic = (terminate?: boolean):void => {
+  stopMusic = (terminate?: boolean): void =>
+  {
+    this._notePlayingFlag = false;  
     this.setState({ play: 0, playButton: playUrl });
     transport().stop();
     transport().cancel(0);
@@ -300,9 +304,9 @@ class AllTogether extends Simulation {
   };
 
   /*** runs on initial render ***/
-  componentDidMount = ():void => {
+  componentDidMount = (): void =>
+  {
     this.co2Api();
-
     this.updateDimensions();
 
     togetherArtifactImgs.forEach((picture) => {
@@ -321,9 +325,39 @@ class AllTogether extends Simulation {
       window.addEventListener("resize", this.updateDimensions);
     }
     window.addEventListener("orientationchange", this.rotateDimensions);
-    this.doCoordHits(0, 0);
-    this.doYearHits(this.state.index + 1920);
-    this.setAllegro();
+   
+    //Check for saved state from About page navigation
+    const saved = sessionStorage.getItem("allTogether_restore");
+    if (saved)
+    {
+      sessionStorage.removeItem("allTogether_restore"); // consume once
+      const r = JSON.parse(saved) as {
+        latitude: number; longitude: number;
+        index: number; closestCity: string;
+      };
+
+      this.setState(
+        {
+          latitude: r.latitude,
+          longitude: r.longitude,
+          index: r.index,
+          closestCity: r.closestCity,
+        },
+        () =>
+        {
+          this.doCoordHits(r.latitude, r.longitude);
+          this.doYearHits(r.index + 1920);
+          this.setAllegro();
+        }
+      );
+
+    } else
+    {
+      // Normal first load
+      this.doCoordHits(0, 0);
+      this.doYearHits(this.state.index + 1920);
+      this.setAllegro();
+    }
   };
   componentDidUpdate(
     prevProps: Readonly<this["props"]>,
@@ -876,60 +910,67 @@ class AllTogether extends Simulation {
   doCoordHits(lat: number, lon: number): void
   {
     const closestcity = getClosestCity(lat, lon);
-    const { dbX, dbY } = this.getDBCoords();
     this.setState({
       latitude: Math.floor(lat),
       longitude: Math.floor(lon),
       closestCity: closestcity,
       waiting: 6,
-    });
-    let request;
+    },
+      () =>
+      {
 
-    /* Filter and do db hit here */
-    if (dbX <= 360 && dbX >= 1 && dbY <= 180 && dbY >= 1) {
-      request = dbUrl
-        .concat("precipavg/coord/")
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.precipCoordApi(request);
-      request = dbUrl
-        .concat("tempavg/coord/")
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.tempCoordApi(request);
-      request = dbUrl
-        .concat("seaiceavg/coord/")
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.iceCoordApi(request);
-      request = dbUrl
-        .concat("precip001/coord/")
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.precipCoordApi1(request);
-      request = dbUrl
-        .concat("temp001/coord/")
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.tempCoordApi1(request);
-      request = dbUrl
-        .concat("seaice001/coord/")
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.iceCoordApi1(request);
-    }
+        const { dbX, dbY } = this.getDBCoords();
+        let request;
+
+        /* Filter and do db hit here */
+        if (dbX <= 360 && dbX >= 1 && dbY <= 180 && dbY >= 1)
+        {
+          request = dbUrl
+            .concat("precipavg/coord/")
+            .concat(dbX.toString(10))
+            .concat(",")
+            .concat(dbY.toString(10))
+            .concat(".txt");
+          this.precipCoordApi(request);
+          request = dbUrl
+            .concat("tempavg/coord/")
+            .concat(dbX.toString(10))
+            .concat(",")
+            .concat(dbY.toString(10))
+            .concat(".txt");
+          this.tempCoordApi(request);
+          request = dbUrl
+            .concat("seaiceavg/coord/")
+            .concat(dbX.toString(10))
+            .concat(",")
+            .concat(dbY.toString(10))
+            .concat(".txt");
+          this.iceCoordApi(request);
+          request = dbUrl
+            .concat("precip001/coord/")
+            .concat(dbX.toString(10))
+            .concat(",")
+            .concat(dbY.toString(10))
+            .concat(".txt");
+          this.precipCoordApi1(request);
+          request = dbUrl
+            .concat("temp001/coord/")
+            .concat(dbX.toString(10))
+            .concat(",")
+            .concat(dbY.toString(10))
+            .concat(".txt");
+          this.tempCoordApi1(request);
+          request = dbUrl
+            .concat("seaice001/coord/")
+            .concat(dbX.toString(10))
+            .concat(",")
+            .concat(dbY.toString(10))
+            .concat(".txt");
+          this.iceCoordApi1(request);
+        }
+      }
+    );
+    
   }
 
   /*** Run this when play button is pressed ***/
@@ -1007,7 +1048,9 @@ class AllTogether extends Simulation {
     pianoPattern.humanize = true;
 
     // catches most errors
-    if (this.state.audioAvailable) {
+    if (this.state.audioAvailable)
+    {
+      transport().cancel();
       precipPattern.start(0);
       precipPattern1.start(0);
       tempPattern.start(0);
@@ -1021,17 +1064,22 @@ class AllTogether extends Simulation {
     } else {
       Tone.start()
         .then(() => {
-          this.setState({ audioAvailable: true });
-          precipPattern.start(0.001);
-          precipPattern1.start(0.001);
-          tempPattern.start(0.001);
-          tempPattern1.start(0.001);
-          pianoPattern.start(0.001);
-          if (this.getValByIndex(this.state.iceAvg, 0) !== 0) {
-            icePattern.start(0.001);
-            icePattern1.start(0.001);
-          }
-          transport().start("+0");
+          this.setState({ audioAvailable: true }, function ()
+          {
+            transport().cancel();
+            precipPattern.start(0.001);
+            precipPattern1.start(0.001);
+            tempPattern.start(0.001);
+            tempPattern1.start(0.001);
+            pianoPattern.start(0.001);
+            if (this.getValByIndex(this.state.iceAvg, 0) !== 0)
+            {
+              icePattern.start(0.001);
+              icePattern1.start(0.001);
+            }
+            transport().start("+0");
+          });
+          
         })
         .catch((error: unknown) =>
         { console.error(error) });
@@ -1113,27 +1161,29 @@ class AllTogether extends Simulation {
   /*** for chaning city ***/
   changeToCity = (event: React.ChangeEvent<HTMLSelectElement>): void =>
   {
-    if (this.state.play === 1)
-    {
-      this.stopMusic(false);
-    }
-    transport().start("+0");
-    
     const city = event.target.value;
     const cityinfo = getInfo(city);
     const lat = cityinfo.latitude;
     const lon = cityinfo.longitude;
 
+    this.setState(
+      {
+        latitude: lat,
+        longitude: lon,
+        useArray: 0
+      },
+      () =>
+      {
+        this.doCoordHits(lat, lon);
+        this.setupGraph();
+        this.triggerNotes();
+        if (this.state.play === 1)
+        {
+          this.stopMusic();
+        }
+      }
+    );
 
-    this.doCoordHits(lat, lon);
-    this.setState({
-      latitude: lat,
-      longitude: lon,
-      useArray: 0,
-    });
-    this.setupGraph();
-    this.triggerNotes();
-    
   };
 
   /*** runs on page close ***/
@@ -1171,16 +1221,21 @@ class AllTogether extends Simulation {
 
   /*** for playing model keys ***/
   setupPrecipTransport = (e: React.PointerEvent<HTMLDivElement>):void => {
+    if (this.state.play === 1) return;
     transport().start("+0");
     this.testPrecipMusic(e);
   };
 
-  setupTempTransport = (e: React.PointerEvent<HTMLDivElement>):void => {
+  setupTempTransport = (e: React.PointerEvent<HTMLDivElement>): void =>
+  {
+    if (this.state.play === 1) return;
     transport().start("+0");
     this.testTempMusic(e);
   };
 
-  setupIceTransport = (e: React.PointerEvent<HTMLDivElement>):void => {
+  setupIceTransport = (e: React.PointerEvent<HTMLDivElement>): void =>
+  {
+    if (this.state.play === 1) return;
     transport().start("+0");
     this.testIceMusic(e);
   };
@@ -1383,6 +1438,14 @@ class AllTogether extends Simulation {
     if (this.state.play === 1) {
       this.stopMusic(false);
     }
+
+    // Persist state before leaving
+    sessionStorage.setItem("allTogether_restore", JSON.stringify({
+      latitude: this.state.latitude,
+      longitude: this.state.longitude,
+      index: this.state.index,
+      closestCity: this.state.closestCity,
+    }));
     navigation.navigate("About");
   };
 
@@ -1392,6 +1455,12 @@ class AllTogether extends Simulation {
       this.getLocations();
 
     const playButton = this.getPlayButton();
+    const playButtonAlt =
+      this.state.waiting > 0
+        ? "loading"
+        : this.state.play === 1
+          ? "pause"
+          : "play";
 
     const { dbX, dbY } = this.getDBCoords();
 
@@ -1405,6 +1474,9 @@ class AllTogether extends Simulation {
     const ind = this.state.index.toString();
     const suffix = ind.concat(".jpg");
     const fullUrl = urlAdd.concat(suffix);
+    const modelAltText =
+      ("mapped precipitation, temperature, and sea ice data from climate model")
+      + `, year ${String(this.state.index + 1920)}, Carbon Dioxide ${String(co2val)} ppm, highlighting selected location: ${String(this.state.latitude)}, ${String(this.state.longitude)} and nearest city: ${this.state.closestCity}`;
 
     let precip_val = 0;
     let temp_val = 0;
@@ -1523,7 +1595,7 @@ class AllTogether extends Simulation {
                 >
                   <img
                     style={playSplitDivStyle}
-                    alt="play button"
+                    alt={playButtonAlt}
                     src={playButton}
                   />
                 </button>
@@ -1730,7 +1802,7 @@ class AllTogether extends Simulation {
             >
               <img
                 src={fullUrl}
-                alt="climate model"
+                alt={modelAltText}
                 style={modelStyle}
                 draggable="false"
               />
@@ -1818,7 +1890,7 @@ class AllTogether extends Simulation {
                 step="1"
                 onChange={this.handleYear}
               />
-              <img style={timelineStyle} alt="timeline" src={timelineImg} />
+              <img style={timelineStyle} alt="Timeline" src={timelineImg} />
             </div>
           </div>
           <div
