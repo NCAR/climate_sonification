@@ -119,7 +119,7 @@ function HomeScreen({ navigation }: HomeScreenProps): React.JSX.Element
         <a href="https://bit.ly/sounding-climate-article">
           <img
             className={"hp-qr"}
-            alt="link to Sounding Climate article"
+            alt="link to Climate Model article"
             src={qrImg}
             onPointerDown={redirect}
           />
