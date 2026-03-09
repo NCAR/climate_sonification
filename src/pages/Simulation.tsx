@@ -931,9 +931,6 @@ export abstract class Simulation extends React.Component<SimulationProps, Simula
     };
 
     const timelineStyle: React.CSSProperties = {
-      height:
-        Math.floor((this.state.pageBottom * this.state.SLIDERVERTDIV) / 2) -
-        this.state.PADDING * 2,
       width: modelWidth,
       objectFit: "fill",
     };

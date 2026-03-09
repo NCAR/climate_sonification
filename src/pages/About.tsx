@@ -67,11 +67,13 @@ const headerStyle: CSSProperties = {
   position: "sticky",
   top: 0,
   zIndex: 10,
-  paddingBottom: "8px",
+  padding: "8px",
+  paddingBottom: "2px",
   display: "grid",
   gridTemplateColumns: "1fr auto",
   alignItems: "center",
   gap: "12px",
+  backgroundColor: "#efefef",
 };
 
 
@@ -95,6 +97,7 @@ function About({ navigation, route }: AboutProps): React.JSX.Element {
         fontSize: Math.floor(pageRight / 200 + pageBottom / 100) + 4,
         fontFamily: "Verdana, sans-serif",
         fontWeight: "bold",
+        marginLeft: "20%",
         backgroundColor: "#DDDDDD",
         padding: Math.floor(pageRight / 200 + pageBottom / 100),
         borderRadius: Math.floor(pageRight / 200 + pageBottom / 100),
@@ -113,21 +116,21 @@ function About({ navigation, route }: AboutProps): React.JSX.Element {
 
   return (
     <div style={outerStyle}>
+      <div style={headerStyle}>
+        <p style={{ ...titleTextStyle, margin: "20px 0" }}>{TITLE_TEXT}</p>
+        <button
+          onClick={() => { navigation.goBack(); }}
+          style={{
+            fontSize: titleTextStyle.fontSize,
+            padding: "6px 12px",
+            cursor: "pointer",
+          }}
+        >
+          {RTN_BTN}
+        </button>
+      </div>
       <div style={contentStyle}>
-        <div style={headerStyle}>
-          <p style={{ ...titleTextStyle, margin: "20px 0" }}>{TITLE_TEXT}</p>
-
-          <button
-            onClick={() => { navigation.goBack(); }}
-            style={{
-              fontSize: titleTextStyle.fontSize,
-              padding: "6px 12px",
-              cursor: "pointer",
-            }}
-          >
-            {RTN_BTN}
-          </button>
-        </div>
+        
 
         {FAQ.map((item) => (
           <div key={item.q}>
