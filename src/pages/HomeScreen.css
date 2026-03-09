@@ -1,4 +1,9 @@
-body {
+body{
+  padding: 0;
+  margin:0;
+  background-color:black;
+}
+.homeBg {
   background: url("https://d1x93ny0ig1u61.cloudfront.net/images/interface/tAnom.0181.jpg") repeat top left;
   background-size: cover;
 }

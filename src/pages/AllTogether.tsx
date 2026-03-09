@@ -1,13 +1,15 @@
-import { Image } from "react-native";
-import * as React from "react";
-import { useNavigation } from "@react-navigation/native";
-import Axios from "axios";
+import { prefetchImage } from "../utils/prefetchImage.js";
+import { useNavigationShim } from "../routing/useNavigationShim";
+import Axios, { type AxiosResponse } from "axios";
 import PubSub from "pubsub-js";
 import { isBrowser } from "react-device-detect";
-import { Simulation } from "./Simulation.js";
+import { Simulation } from "./Simulation";
+import type { SimulationProps } from "./Simulation";
 import * as Tone from "tone";
-import { getClosestCity, getInfo } from "./../const/cities.js";
-import { RED, YELLOW, GREEN, BLUE } from "./../const/color.js";
+import { getClosestCity, getInfo } from "../const/cities";
+import { RED, YELLOW, GREEN, BLUE } from "../const/color";
+import { AvgArr } from "../sim/dataMath.js";
+import { abortAndRenew } from "../sim/abort";
 
 import {
   combinedImgs,
@@ -23,115 +25,146 @@ import {
   timelineImg,
   togetherArtifactImgs,
   pauseUrl,
-  playUrl,
-} from "./../const/url.js";
+  playUrl
+} from "../const/url.js";
 
-function isNumeric(value) {
+function isNumeric(value: string): boolean {
   return /^-?\d+$/.test(value);
 }
 
-let cancelYearPrecip;
-let cancelCoordPrecip;
-let cancelCoordPrecip1;
-let cancelYearTemp;
-let cancelCoordTemp;
-let cancelCoordTemp1;
-let cancelYearIce;
-let cancelCoordIce;
-let cancelCoordIce1;
+type ApiResponse<T> = { data: T };
 
-const CancelToken = Axios.CancelToken;
+type CoordArrayNum = 0 | 1 | 2;
+type ToneTransport = ReturnType<typeof Tone.getTransport>;
+type YearArrayNum = 0 | 1 | 2 | 3 | 4 | 5;
+type YearStateKey = "precipAvg" | "tempAvg" | "iceAvg" | "precip1" | "temp1" | "ice1";
+type NotesSetter = (arr: AvgArr) => void;
+
+const transport = (): ToneTransport => Tone.getTransport();
+function isCanceledAxiosError(error: unknown): boolean
+{
+  if (!error || typeof error !== "object") return false;
+  const e = error as { code?: unknown; name?: unknown };
+  return e.code === "ERR_CANCELED" || e.name === "CanceledError";
+}
 
 /*** Page class ***/
 class AllTogether extends Simulation {
-  constructor(props) {
+  constructor(props:SimulationProps) {
     super(props);
-    this.state.modelStr = "/combined/combined_ens";
-    this.state.precipAvg = [0];
-    this.state.tempAvg = [0];
-    this.state.iceAvg = [0];
-    this.state.precip1 = [0];
-    this.state.temp1 = [0];
-    this.state.ice1 = [0];
-    this.state.precipAvgAllCoords = [0];
-    this.state.tempAvgAllCoords = [0];
-    this.state.iceAvgAllCoords = [0];
+    this.state = {
+      ...this.state,
+      modelStr: "/combined/combined_ens",
+      precipAvg: [] as unknown as AvgArr,
+      tempAvg: [] as unknown as AvgArr,
+      iceAvg: [] as unknown as AvgArr,
+      precip1: [] as unknown as AvgArr,
+      temp1: [] as unknown as AvgArr,
+      ice1: [] as unknown as AvgArr,
+      precipAvgAllCoords: [] as unknown as AvgArr,
+      tempAvgAllCoords: [] as unknown as AvgArr,
+      iceAvgAllCoords: [] as unknown as AvgArr,
+    };
   }
+  yearPrecipController: AbortController | null = null;
+  yearTempController: AbortController | null = null;
+  yearIceController: AbortController | null = null;
+
+  coordPrecipAvgController: AbortController | null = null;
+  coordTempAvgController: AbortController | null = null;
+  coordIceAvgController: AbortController | null = null;
+
+  coordPrecip1Controller: AbortController | null = null;
+  coordTemp1Controller: AbortController | null = null;
+  coordIce1Controller: AbortController | null = null;
+
+  _isYearSeriesReady = (arr: unknown): arr is AvgArr =>
+  {
+    return Array.isArray(arr) && arr.length > 0 && typeof arr[0] === "object";
+  };
+
+  _isCo2Ready = (): boolean =>
+  {
+    const item = this.state.co2data[this.state.index]; 
+    const v = item?.co2_val;
+    const n = typeof v === "string" ? Number(v) : v;
+    return Number.isFinite(n);
+  };
 
   /* Test precip model key */
-  testPrecipMusic = (e) => {
+  testPrecipMusic = (e: React.PointerEvent | React.MouseEvent):void => {
     if (
       this.state.notePlaying === 0 &&
       e.buttons === 1 &&
       this.state.play === 0
     ) {
-      var keyLeft = Math.floor(this.state.pageRight / 4);
-      var keyRight = Math.floor(this.state.pageRight / 2);
+      let keyLeft = Math.floor(this.state.pageRight / 4);
+      let keyRight = Math.floor(this.state.pageRight / 2);
       if (this.state.CONTROLVERTDIV !== 1) {
         keyLeft = Math.floor(this.state.pageRight / 20);
         keyRight = Math.floor(
-          this.state.pageRight / 20 + (this.state.pageRight * 19) / 20 / 3
+          this.state.pageRight / 20 + (this.state.pageRight * 19) / 20 / 3,
         );
       }
-      var x = e.pageX - keyLeft;
-      var rangeX = keyRight - keyLeft;
-      var percX = x / rangeX;
-      var playVal = (percX - 0.175) * 500 + 100;
-      this.playNoteByValKey(0, playVal, this.state.index, this.state.precipAvg);
+      const x = e.pageX - keyLeft;
+      const rangeX = keyRight - keyLeft;
+      const percX = x / rangeX;
+      const playVal = (percX - 0.175) * 500 + 100;
+      this.playNoteByValKey(0, playVal);
     }
   };
 
   /* Test temp model key */
-  testTempMusic = (e) => {
+  testTempMusic = (e: React.PointerEvent | React.MouseEvent):void => {
     if (
       this.state.notePlaying === 0 &&
       e.buttons === 1 &&
       this.state.play === 0
     ) {
-      var keyLeft = Math.floor(this.state.pageRight / 2);
-      var keyRight = Math.floor((this.state.pageRight * 3) / 4);
+      let keyLeft = Math.floor(this.state.pageRight / 2);
+      let keyRight = Math.floor((this.state.pageRight * 3) / 4);
       if (this.state.CONTROLVERTDIV !== 1) {
         keyLeft = Math.floor(
-          this.state.pageRight / 20 + (this.state.pageRight * 19) / 20 / 3
+          this.state.pageRight / 20 + (this.state.pageRight * 19) / 20 / 3,
         );
         keyRight = Math.floor(
-          this.state.pageRight / 20 + (2 * this.state.pageRight * 19) / 20 / 3
+          this.state.pageRight / 20 + (2 * this.state.pageRight * 19) / 20 / 3,
         );
       }
-      var x = e.pageX - keyLeft;
-      var rangeX = keyRight - keyLeft;
-      var percX = x / rangeX;
-      var playVal = (percX - 0.14) * 23;
-      this.playNoteByValKey(1, playVal, this.state.index, this.state.tempAvg);
+      const x = e.pageX - keyLeft;
+      const rangeX = keyRight - keyLeft;
+      const percX = x / rangeX;
+      const playVal = (percX - 0.14) * 23;
+      this.playNoteByValKey(1, playVal);
     }
   };
 
   /* Test sea ice model key */
-  testIceMusic = (e) => {
+  testIceMusic = (e: React.PointerEvent | React.MouseEvent):void => {
     if (
       this.state.notePlaying === 0 &&
       e.buttons === 1 &&
       this.state.play === 0
     ) {
-      var keyLeft = Math.floor((this.state.pageRight * 3) / 4);
-      var keyRight = Math.floor(this.state.pageRight);
+      let keyLeft = Math.floor((this.state.pageRight * 3) / 4);
+      let keyRight = Math.floor(this.state.pageRight);
       if (this.state.CONTROLVERTDIV !== 1) {
         keyLeft = Math.floor(
-          this.state.pageRight / 20 + (2 * this.state.pageRight * 19) / 20 / 3
+          this.state.pageRight / 20 + (2 * this.state.pageRight * 19) / 20 / 3,
         );
         keyRight = Math.floor(this.state.pageRight);
       }
-      var x = e.pageX - keyLeft;
-      var rangeX = keyRight - keyLeft;
-      var percX = x / rangeX;
-      var playVal = percX;
-      this.playNoteByValKey(2, playVal, this.state.index, this.state.iceAvg);
+      const x = e.pageX - keyLeft;
+      const rangeX = keyRight - keyLeft;
+      const percX = x / rangeX;
+      const playVal = percX;
+      this.playNoteByValKey(2, playVal);
     }
   };
 
   /*** When map coord is selected, do db query ***/
-  onPointerUp = (e) => {
-    this.killMapTransport(e);
+  onPointerUp = ():void => {
+    this.killTransport();
     if (this.state.play === 0) {
       //console.log('state ply is 0 on pointerup');
       this.doCoordHits(this.state.latitude, this.state.longitude);
@@ -139,36 +172,38 @@ class AllTogether extends Simulation {
   };
 
   /*** Used to calculate coords on model for onMouseDown and onMouseMove ***/
-  onMouseDown = (e) => {
+  onMouseDown = (e: React.MouseEvent | React.PointerEvent): void => {
     if (e.buttons !== 1) {
-      return -1;
+      return;
     }
     if (this.state.play === 1) {
-      this.stopMusic(0);
+      this.stopMusic(false);
     }
-    if (this.state.notePlaying !== 0) {
-      return -1;
+    if (this._notePlayingFlag)
+    {
+      console.log('notePlaying flag is true, returning early');
+      return;
     }
-    var modelSplit = Math.floor(
-      (this.state.pageBottom * this.state.MAPVERTDIV) / 2
+    const modelSplit = Math.floor(
+      (this.state.pageBottom * this.state.MAPVERTDIV) / 2,
     );
-    var modelLeft =
+    const modelLeft =
       Math.floor(this.state.pageRight * (1 - this.state.MAPDIV)) +
       this.state.PADDING / 2;
-    var modelDiv = Math.floor((this.state.pageRight * this.state.MAPDIV) / 3);
-    var modelTop = this.state.PADDING / 2;
+    const modelDiv = Math.floor((this.state.pageRight * this.state.MAPDIV) / 3);
+    let modelTop = this.state.PADDING / 2;
     if (this.state.pageBottom > this.state.pageRight) {
       modelTop =
         this.state.pageBottom * this.state.CONTROLVERTDIV +
         this.state.PADDING / 2;
     }
-    var x = Math.floor(e.pageX - modelLeft);
-    var y = Math.floor(e.pageY - modelTop);
-    var latSave = 0;
-    var lonSave = 0;
-    var centerX = 0;
-    var centerY = 0;
-    var boxType = 0;
+    const x = Math.floor(e.pageX - modelLeft);
+    const y = Math.floor(e.pageY - modelTop);
+    let latSave = 0;
+    let lonSave = 0;
+    let centerX = 0;
+    let centerY = 0;
+    let boxType = 0;
 
     if (x <= modelDiv && y <= modelSplit) {
       centerX = modelDiv / 2;
@@ -203,19 +238,19 @@ class AllTogether extends Simulation {
     }
     //polar coords
     else if (boxType === 2) {
-      var dx = x - centerX;
+      let dx = x - centerX;
       dx *= modelSplit / ((modelDiv * 3) / 4);
-      var dy = centerY - y;
-      var r = Math.sqrt(dx ** 2 + dy ** 2);
-      var theta = Math.atan(dy / dx);
+      const dy = centerY - y;
+      const r = Math.sqrt(dx ** 2 + dy ** 2);
+      let theta = Math.atan(dy / dx);
       theta += Math.PI / 2;
       if (dx > 0) {
         theta += Math.PI;
       }
       theta /= Math.PI;
       theta /= 2;
-      var newlon = Math.floor(theta * 360 - 180);
-      var newlat = r / modelSplit;
+      const newlon = Math.floor(theta * 360 - 180);
+      let newlat = r / modelSplit;
       newlat *= 56;
       lonSave = newlon;
       latSave = 90 - newlat;
@@ -231,54 +266,57 @@ class AllTogether extends Simulation {
     });
 
     //diplay data and play notes
-    var { dbX, dbY } = this.getDBCoords();
-    var coord_index = this.getDBIndex(dbX, dbY);
+    const { dbX, dbY } = this.getDBCoords();
+    const coord_index = this.getDBIndex(dbX, dbY);
     if (
       this.state.precipAvgAllCoords.length >= coord_index &&
       this.state.tempAvgAllCoords.length >= coord_index &&
       this.state.iceAvgAllCoords.length >= coord_index
     ) {
-      var val1 = this.getValByCoord(this.state.precipAvgAllCoords, coord_index);
-      var val2 = this.getValByCoord(this.state.tempAvgAllCoords, coord_index);
-      var val3 = this.getValByCoord(this.state.iceAvgAllCoords, coord_index);
-      var val4 = this.state.co2data[this.state.index].co2_val;
-      this.playTogetherMapNotes(
-        val1,
-        val2,
-        val3,
-        val4,
-        this.state.index,
-        this.state.precipAvg,
-        this.state.tempAvg,
-        this.state.iceAvg
-      );
+      const val1 = this.getValByCoord(this.state.precipAvgAllCoords, coord_index);
+      const val2 = this.getValByCoord(this.state.tempAvgAllCoords, coord_index);
+      const val3 = this.getValByCoord(this.state.iceAvgAllCoords, coord_index);
+      const item = this.state.co2data[this.state.index];
+      if (item)
+      {
+        const val4 = item.co2_val;
+        this.playTogetherMapNotes(
+          val1,
+          val2,
+          val3,
+          val4
+        );
+      }
+      
     }
   };
 
   /*** stops music ***/
-  stopMusic = (terminate) => {
+  stopMusic = (terminate?: boolean): void =>
+  {
+    this._notePlayingFlag = false;  
     this.setState({ play: 0, playButton: playUrl });
-    Tone.Transport.stop();
-    Tone.Transport.cancel(0);
-    if (terminate === 0) {
+    transport().stop();
+    transport().cancel(0);
+    if (terminate === false) {
       this.doYearHits(this.state.index + 1920);
     }
   };
 
   /*** runs on initial render ***/
-  componentDidMount = () => {
+  componentDidMount = (): void =>
+  {
     this.co2Api();
-
     this.updateDimensions();
 
     togetherArtifactImgs.forEach((picture) => {
-      Image.prefetch(picture).catch((error) => {
+      prefetchImage(picture).catch((error:unknown) => {
         console.error("Image prefetch failed for", picture, error);
       });
     });
 
     combinedImgs.forEach((picture) => {
-      Image.prefetch(picture).catch((error) => {
+      prefetchImage(picture).catch((error: unknown) => {
         console.error("Image prefetch failed for", picture, error);
       });
     });
@@ -287,170 +325,274 @@ class AllTogether extends Simulation {
       window.addEventListener("resize", this.updateDimensions);
     }
     window.addEventListener("orientationchange", this.rotateDimensions);
-    this.doCoordHits(0, 0);
-    this.doYearHits(this.state.index + 1920);
-    this.setAllegro();
+   
+    //Check for saved state from About page navigation
+    const saved = sessionStorage.getItem("allTogether_restore");
+    if (saved)
+    {
+      sessionStorage.removeItem("allTogether_restore"); // consume once
+      const r = JSON.parse(saved) as {
+        latitude: number; longitude: number;
+        index: number; closestCity: string;
+      };
+
+      this.setState(
+        {
+          latitude: r.latitude,
+          longitude: r.longitude,
+          index: r.index,
+          closestCity: r.closestCity,
+        },
+        () =>
+        {
+          this.doCoordHits(r.latitude, r.longitude);
+          this.doYearHits(r.index + 1920);
+          this.setAllegro();
+        }
+      );
+
+    } else
+    {
+      // Normal first load
+      this.doCoordHits(0, 0);
+      this.doYearHits(this.state.index + 1920);
+      this.setAllegro();
+    }
   };
+  componentDidUpdate(
+    prevProps: Readonly<this["props"]>,
+    prevState: Readonly<typeof this.state>,
+  ): void
+  {
+    // Only redraw when inputs to the graph change
+    const graphInputsChanged =
+      prevState.index !== this.state.index ||
+      prevState.precipAvg !== this.state.precipAvg ||
+      prevState.precip1 !== this.state.precip1 ||
+      prevState.tempAvg !== this.state.tempAvg ||
+      prevState.temp1 !== this.state.temp1 ||
+      prevState.iceAvg !== this.state.iceAvg ||
+      prevState.ice1 !== this.state.ice1 ||
+      prevState.co2data !== this.state.co2data ||
+      prevState.pageBottom !== this.state.pageBottom ||
+      prevState.pageRight !== this.state.pageRight ||
+      prevState.GRAPHVERTDIV !== this.state.GRAPHVERTDIV ||
+      prevState.MAPDIV !== this.state.MAPDIV;
 
-  /*** Write to graph ***/
-  updateGraph() {
-    if (this.state.index > 0 && this.state.index <= 180) {
-      const ctx = this.graphRef.current.getContext("2d");
-
-      var { step, avg, co2_median, co2_range, co2_avg } = this.getGraphDims();
-
-      var { precip_median, precip_range } = this.getPrecipGraphVars(
-        this.state.precipAvg
-      );
-
-      var prev_val = 0;
-      var coord_val = 0;
-
-      //precip
-      ctx.beginPath();
-      for (var precipInd = 0; precipInd <= this.state.index; precipInd++) {
-        prev_val = this.getValByIndex(this.state.precipAvg, precipInd - 1);
-        coord_val = this.getValByIndex(this.state.precipAvg, precipInd);
-
-        ctx.moveTo(
-          1 + step * (precipInd - 1),
-          avg + avg * ((precip_median - prev_val) / precip_range)
-        );
-        ctx.lineTo(
-          1 + step * precipInd,
-          avg + avg * ((precip_median - coord_val) / precip_range)
-        );
-        ctx.strokeStyle = GREEN;
-        ctx.lineWidth = 2;
-      }
-      ctx.stroke();
-
-      ctx.beginPath();
-      for (precipInd = 0; precipInd <= this.state.index; precipInd++) {
-        prev_val = this.getValByIndex(this.state.precip1, precipInd - 1);
-        coord_val = this.getValByIndex(this.state.precip1, precipInd);
-
-        ctx.moveTo(
-          1 + step * (precipInd - 1),
-          avg + avg * ((precip_median - prev_val) / precip_range)
-        );
-        ctx.lineTo(
-          1 + step * precipInd,
-          avg + avg * ((precip_median - coord_val) / precip_range)
-        );
-        ctx.strokeStyle = GREEN;
-        ctx.lineWidth = 1;
-      }
-      ctx.stroke();
-
-      var { temp_median, temp_range, temp_avg } = this.getTempGraphVars(
-        this.state.tempAvg,
-        avg
-      );
-
-      //temp
-      ctx.beginPath();
-      for (var tempInd = 0; tempInd <= this.state.index; tempInd++) {
-        prev_val = this.getValByIndex(this.state.tempAvg, tempInd - 1);
-        coord_val = this.getValByIndex(this.state.tempAvg, tempInd);
-
-        ctx.moveTo(
-          1 + step * (tempInd - 1),
-          temp_avg + temp_avg * ((temp_median - prev_val) / temp_range)
-        );
-        ctx.lineTo(
-          1 + step * tempInd,
-          temp_avg + temp_avg * ((temp_median - coord_val) / temp_range)
-        );
-        ctx.strokeStyle = RED;
-        ctx.lineWidth = 2;
-      }
-      ctx.stroke();
-
-      ctx.beginPath();
-      for (tempInd = 0; tempInd <= this.state.index; tempInd++) {
-        prev_val = this.getValByIndex(this.state.temp1, tempInd - 1);
-        coord_val = this.getValByIndex(this.state.temp1, tempInd);
-
-        ctx.moveTo(
-          1 + step * (tempInd - 1),
-          temp_avg + temp_avg * ((temp_median - prev_val) / temp_range)
-        );
-        ctx.lineTo(
-          1 + step * tempInd,
-          temp_avg + temp_avg * ((temp_median - coord_val) / temp_range)
-        );
-        ctx.strokeStyle = RED;
-        ctx.lineWidth = 1;
-      }
-      ctx.stroke();
-
-      var ice_max = 1;
-      var ice_avg = Math.floor(avg * 0.5);
-
-      //sea ice
-      ctx.beginPath();
-      for (var iceInd = 0; iceInd <= this.state.index; iceInd++) {
-        prev_val = this.getValByIndex(this.state.iceAvg, iceInd - 1);
-        coord_val = this.getValByIndex(this.state.iceAvg, iceInd);
-
-        ctx.moveTo(
-          1 + step * (iceInd - 1),
-          ice_avg + 3 * ice_avg * (ice_max - prev_val)
-        );
-        ctx.lineTo(
-          1 + step * iceInd,
-          ice_avg + 3 * ice_avg * (ice_max - coord_val)
-        );
-        ctx.strokeStyle = BLUE;
-        ctx.lineWidth = 2;
-      }
-      ctx.stroke();
-
-      ctx.beginPath();
-      for (iceInd = 0; iceInd <= this.state.index; iceInd++) {
-        prev_val = this.getValByIndex(this.state.ice1, iceInd - 1);
-        coord_val = this.getValByIndex(this.state.ice1, iceInd);
-
-        ctx.moveTo(
-          1 + step * (iceInd - 1),
-          ice_avg + 3 * ice_avg * (ice_max - prev_val)
-        );
-        ctx.lineTo(
-          1 + step * iceInd,
-          ice_avg + 3 * ice_avg * (ice_max - coord_val)
-        );
-        ctx.strokeStyle = BLUE;
-        ctx.lineWidth = 1;
-      }
-      ctx.stroke();
-
-      //co2
-      ctx.beginPath();
-      for (var co2Ind = 1; co2Ind <= this.state.index; co2Ind++) {
-        prev_val = this.state.co2data[co2Ind - 1].co2_val;
-        coord_val = this.state.co2data[co2Ind].co2_val;
-
-        ctx.moveTo(
-          1 + step * (co2Ind - 1),
-          co2_avg - (co2_avg * (prev_val - co2_median)) / co2_range
-        );
-        ctx.lineTo(
-          1 + step * co2Ind,
-          co2_avg - (co2_avg * (coord_val - co2_median)) / co2_range
-        );
-        ctx.strokeStyle = YELLOW;
-        ctx.lineWidth = 3;
-      }
-      ctx.stroke();
+    if (graphInputsChanged) {
+      this.setupGraph();
+      this.updateGraph();
     }
   }
 
+  /*** Write to graph ***/
+  updateGraph():void {
+
+    // must have a valid index range
+    if (!(this.state.index >= 0 && this.state.index <= 180)) return;
+
+    // data guards: CO2 and main year-series must be ready
+    if (!this._isCo2Ready()) return;
+
+    // For AllTogether, you draw 6 series across years
+    if (
+      !this._isYearSeriesReady(this.state.precipAvg) ||
+      !this._isYearSeriesReady(this.state.precip1) ||
+      !this._isYearSeriesReady(this.state.tempAvg) ||
+      !this._isYearSeriesReady(this.state.temp1) ||
+      !this._isYearSeriesReady(this.state.iceAvg) ||
+      !this._isYearSeriesReady(this.state.ice1)
+    ) {
+      return;
+    }
+
+    // canvas must exist
+    const canvas = this.graphRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const { step, avg, co2_median, co2_range, co2_avg } = this.getGraphDims();
+
+    const { precip_median, precip_range } = this.getPrecipGraphVars(
+      this.state.precipAvg,
+    );
+    const { temp_median, temp_range, temp_avg } = this.getTempGraphVars(
+      this.state.tempAvg,
+      avg,
+    );
+
+    let prev_val = 0;
+    let coord_val = 0;
+
+    // ===== precip avg (thick) =====
+    ctx.beginPath();
+    for (let precipInd = 0; precipInd <= this.state.index; precipInd++) {
+      prev_val =
+        precipInd === 0
+          ? this.getValByIndex(this.state.precipAvg, 0)
+          : this.getValByIndex(this.state.precipAvg, precipInd - 1);
+      coord_val = this.getValByIndex(this.state.precipAvg, precipInd);
+
+      ctx.moveTo(
+        1 + step * (precipInd - 1),
+        avg + avg * ((precip_median - prev_val) / precip_range),
+      );
+      ctx.lineTo(
+        1 + step * precipInd,
+        avg + avg * ((precip_median - coord_val) / precip_range),
+      );
+      ctx.strokeStyle = GREEN;
+      ctx.lineWidth = 2;
+    }
+    ctx.stroke();
+
+    // ===== precip 001 (thin) =====
+    ctx.beginPath();
+    for (let precipInd = 0; precipInd <= this.state.index; precipInd++) {
+      prev_val =
+        precipInd === 0
+          ? this.getValByIndex(this.state.precip1, 0)
+          : this.getValByIndex(this.state.precip1, precipInd - 1);
+      coord_val = this.getValByIndex(this.state.precip1, precipInd);
+
+      ctx.moveTo(
+        1 + step * (precipInd - 1),
+        avg + avg * ((precip_median - prev_val) / precip_range),
+      );
+      ctx.lineTo(
+        1 + step * precipInd,
+        avg + avg * ((precip_median - coord_val) / precip_range),
+      );
+      ctx.strokeStyle = GREEN;
+      ctx.lineWidth = 1;
+    }
+    ctx.stroke();
+
+    // ===== temp avg (thick) =====
+    ctx.beginPath();
+    for (let tempInd = 0; tempInd <= this.state.index; tempInd++) {
+      prev_val =
+        tempInd === 0
+          ? this.getValByIndex(this.state.tempAvg, 0)
+          : this.getValByIndex(this.state.tempAvg, tempInd - 1);
+      coord_val = this.getValByIndex(this.state.tempAvg, tempInd);
+
+      ctx.moveTo(
+        1 + step * (tempInd - 1),
+        temp_avg + temp_avg * ((temp_median - prev_val) / temp_range),
+      );
+      ctx.lineTo(
+        1 + step * tempInd,
+        temp_avg + temp_avg * ((temp_median - coord_val) / temp_range),
+      );
+      ctx.strokeStyle = RED;
+      ctx.lineWidth = 2;
+    }
+    ctx.stroke();
+
+    // ===== temp 001 (thin) =====
+    ctx.beginPath();
+    for (let tempInd = 0; tempInd <= this.state.index; tempInd++) {
+      prev_val =
+        tempInd === 0
+          ? this.getValByIndex(this.state.temp1, 0)
+          : this.getValByIndex(this.state.temp1, tempInd - 1);
+      coord_val = this.getValByIndex(this.state.temp1, tempInd);
+
+      ctx.moveTo(
+        1 + step * (tempInd - 1),
+        temp_avg + temp_avg * ((temp_median - prev_val) / temp_range),
+      );
+      ctx.lineTo(
+        1 + step * tempInd,
+        temp_avg + temp_avg * ((temp_median - coord_val) / temp_range),
+      );
+      ctx.strokeStyle = RED;
+      ctx.lineWidth = 1;
+    }
+    ctx.stroke();
+
+    // ===== sea ice =====
+    const ice_max = 1;
+    const ice_avg = Math.floor(avg * 0.5);
+
+    ctx.beginPath();
+    for (let iceInd = 0; iceInd <= this.state.index; iceInd++) {
+      prev_val =
+        iceInd === 0
+          ? this.getValByIndex(this.state.iceAvg, 0)
+          : this.getValByIndex(this.state.iceAvg, iceInd - 1);
+      coord_val = this.getValByIndex(this.state.iceAvg, iceInd);
+
+      ctx.moveTo(
+        1 + step * (iceInd - 1),
+        ice_avg + 3 * ice_avg * (ice_max - prev_val),
+      );
+      ctx.lineTo(
+        1 + step * iceInd,
+        ice_avg + 3 * ice_avg * (ice_max - coord_val),
+      );
+      ctx.strokeStyle = BLUE;
+      ctx.lineWidth = 2;
+    }
+    ctx.stroke();
+
+    ctx.beginPath();
+    for (let iceInd = 0; iceInd <= this.state.index; iceInd++) {
+      prev_val =
+        iceInd === 0
+          ? this.getValByIndex(this.state.ice1, 0)
+          : this.getValByIndex(this.state.ice1, iceInd - 1);
+      coord_val = this.getValByIndex(this.state.ice1, iceInd);
+
+      ctx.moveTo(
+        1 + step * (iceInd - 1),
+        ice_avg + 3 * ice_avg * (ice_max - prev_val),
+      );
+      ctx.lineTo(
+        1 + step * iceInd,
+        ice_avg + 3 * ice_avg * (ice_max - coord_val),
+      );
+      ctx.strokeStyle = BLUE;
+      ctx.lineWidth = 1;
+    }
+    ctx.stroke();
+
+    // ===== CO2 =====
+    ctx.beginPath();
+    for (let co2Ind = 1; co2Ind <= this.state.index; co2Ind++)
+    {
+      const prevItem = this.state.co2data[co2Ind - 1];
+      const currItem = this.state.co2data[co2Ind];
+      if (prevItem && currItem)
+      {
+        const prev = prevItem.co2_val;
+        const curr = currItem.co2_val;
+
+        if (!Number.isFinite(prev) || !Number.isFinite(curr)) continue;
+
+        ctx.moveTo(
+          1 + step * (co2Ind - 1),
+          co2_avg - (co2_avg * (prev - co2_median)) / co2_range,
+        );
+        ctx.lineTo(
+          1 + step * co2Ind,
+          co2_avg - (co2_avg * (curr - co2_median)) / co2_range,
+        );
+        ctx.strokeStyle = YELLOW;
+        ctx.lineWidth = 3;
+      }      
+    }
+    ctx.stroke();
+  }
+
   /*** called when the window is resized
-   *** see EachAlone for var descriptions***/
-  updateDimensions = () => {
-    var newheight = window.innerHeight;
-    var newwidth = window.innerWidth;
+   *** see EachAlone for let descriptions***/
+  updateDimensions = ():void => {
+    const newheight = window.innerHeight;
+    const newwidth = window.innerWidth;
 
     //landscape
     if (window.innerHeight < window.innerWidth) {
@@ -490,84 +632,53 @@ class AllTogether extends Simulation {
   };
 
   /*** get all avg precip values for a specific year ***/
-	precipYearApi = (request) =>
-	{
-		//console.log(request);
-    if (cancelYearPrecip !== undefined) {
-      cancelYearPrecip();
-    }
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelYearPrecip = c;
-      }),
-    })
-		.then((res) =>
-		{
-        this.setAvgAllCoords(res, 0);
-      })
-      .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('precip year request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+  precipYearApi = (request:string):void => {
+    const controller = (this.yearPrecipController = abortAndRenew(this.yearPrecipController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllCoords(res, 0) })
+      .catch((error:unknown) => {
+        if (isCanceledAxiosError(error)) return;
+        console.error("year precip failed", error);
       });
   };
 
   /*** get all avg temp values for a specific year ***/
-  tempYearApi = (request) => {
-		//console.log(request);
-    if (cancelYearTemp !== undefined) {
-      cancelYearIce();
-    }
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelYearTemp = c;
-      }),
-    })
-      .then((res) => {
-        this.setAvgAllCoords(res, 1);
-      })
-      .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('temp year request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+  tempYearApi = (request:string):void =>
+  {
+    const controller = (this.yearTempController = abortAndRenew(this.yearTempController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllCoords(res, 1) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("year temp failed", error);
       });
   };
 
   /*** get all avg sea ice values for a specific year ***/
-  iceYearApi = (request) => {
-		//console.log(request);
-    if (cancelYearIce !== undefined) {
-      cancelYearIce();
-    }
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelYearIce = c;
-      }),
-    })
-      .then((res) => {
-        this.setAvgAllCoords(res, 2);
-      })
-      .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('ice year request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+  iceYearApi = (request: string): void =>
+  {
+    const controller = (this.yearIceController = abortAndRenew(this.yearIceController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllCoords(res, 2) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("year ice failed", error);
       });
   };
 
   /*** save response for specific year ***/
-  setAvgAllCoords = (res, arrayNum) => {
-    const data = res.data.data;
+  setAvgAllCoords = (res: AxiosResponse<ApiResponse<AvgArr>>,
+    arrayNum: CoordArrayNum,):void => {
+    const data: AvgArr = res.data.data;
     if (arrayNum === 0) {
       this.setState({ precipAvgAllCoords: [...data] });
     } else if (arrayNum === 1) {
       this.setState({ tempAvgAllCoords: [...data] });
-    } else if (arrayNum === 2) {
+    } else
+    {
+      //if (arrayNum === 2){
       this.setState({ iceAvgAllCoords: [...data] });
     }
     if (this.state.play === 0) {
@@ -577,27 +688,29 @@ class AllTogether extends Simulation {
   };
 
   /*** query db for all coords at a specific year ***/
-  doYearHits(year) {
+  doYearHits(year: number): void
+  {
     if (year >= 1920 && year <= 2100) {
-      var intermediate0 = dbUrl.concat("precipavg/year/");
-      var request0 = intermediate0.concat(year.toString(10));
+      const intermediate0 = dbUrl.concat("precipavg/year/");
+      const request0 = intermediate0.concat(year.toString(10));
       this.precipYearApi(request0.concat(".txt"));
 
-      var intermediate1 = dbUrl.concat("tempavg/year/");
-      var request1 = intermediate1.concat(year.toString(10));
+      const intermediate1 = dbUrl.concat("tempavg/year/");
+      const request1 = intermediate1.concat(year.toString(10));
       this.tempYearApi(request1.concat(".txt"));
 
-      var intermediate2 = dbUrl.concat("seaiceavg/year/");
-      var request2 = intermediate2.concat(year.toString(10));
+      const intermediate2 = dbUrl.concat("seaiceavg/year/");
+      const request2 = intermediate2.concat(year.toString(10));
       this.iceYearApi(request2.concat(".txt"));
     }
   }
 
   /*** change lat text from input ***/
-  onChangeLat = (event) => {
-    var newval = event.target.value;
-    if (this.state.play === 0 && isNumeric(newval)) {
-      var parsedval = parseInt(newval);
+  onChangeLat = (event: React.ChangeEvent<HTMLInputElement>): void =>
+  {
+    const newval = event.target.value;
+    if (isNumeric(newval)) {
+      const parsedval = parseInt(newval);
       if (parsedval >= -90 && parsedval <= 90) {
         this.doCoordHits(parsedval, this.state.longitude);
         this.setState({
@@ -605,19 +718,20 @@ class AllTogether extends Simulation {
           useArray: 0,
         });
         this.setupGraph();
-        this.triggerNotes(parsedval, 0);
+        this.triggerNotes();
         if (this.state.play === 1) {
-          this.stopMusic();
+          this.stopMusic(false);
         }
       }
     }
   };
 
   /*** change lon text from input ***/
-  onChangeLon = (event) => {
-    var newval = event.target.value;
-    if (this.state.play === 0 && isNumeric(newval)) {
-      var parsedval = parseInt(newval);
+  onChangeLon = (event: React.ChangeEvent<HTMLInputElement>): void =>
+  {
+    const newval = event.target.value;
+    if (isNumeric(newval)) {
+      const parsedval = parseInt(newval);
       if (parsedval >= -180 && parsedval <= 180) {
         this.doCoordHits(this.state.latitude, parsedval);
         this.setState({
@@ -625,293 +739,247 @@ class AllTogether extends Simulation {
           useArray: 0,
         });
         this.setupGraph();
-        this.triggerNotes(0, parsedval);
+        this.triggerNotes();
         if (this.state.play === 1) {
-          this.stopMusic();
+          this.stopMusic(false);
         }
       }
     }
   };
 
   /*** runs when new lat / lon typed or city selected ***/
-  triggerNotes = (lat, lon) => {
-    var precip_val, temp_val, ice_val;
-    var { dbX, dbY } = this.getDBCoords();
-    var coord_index = this.getDBIndex(dbX, dbY);
+  triggerNotes = ():void => {
+    let precip_val, temp_val, ice_val;
+    const { dbX, dbY } = this.getDBCoords();
+    const coord_index = this.getDBIndex(dbX, dbY);
     if (this.state.precipAvgAllCoords.length > coord_index) {
       precip_val = this.getValByCoord(
         this.state.precipAvgAllCoords,
-        coord_index
+        coord_index,
       );
+
+      this.triggerNoteByVal(0, precip_val);
     }
     if (this.state.tempAvgAllCoords.length > coord_index) {
       temp_val = this.getValByCoord(this.state.tempAvgAllCoords, coord_index);
+      this.triggerNoteByVal(1, temp_val);
     }
     if (this.state.iceAvgAllCoords.length > coord_index) {
       ice_val = this.getValByCoord(this.state.iceAvgAllCoords, coord_index);
+      this.triggerNoteByVal(2, ice_val);
     }
-    var co2_val = this.state.co2data[this.state.index].co2_val;
-    this.triggerNoteByVal(0, precip_val);
-    this.triggerNoteByVal(1, temp_val);
-    this.triggerNoteByVal(2, ice_val);
-    this.triggerNoteByVal(3, co2_val);
+
+    const item = this.state.co2data[this.state.index];
+    if (item)
+    {
+      const co2_val = item.co2_val;
+      this.triggerNoteByVal(3, co2_val);
+    }
+
   };
 
   /*** request avg precip data ***/
-  precipCoordApi = (request) => {
-    if (cancelCoordPrecip !== undefined) {
-      cancelCoordPrecip();
-    }
-
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoordPrecip = c;
-      }),
-    })
-      .then((res) => {
-        this.setState({ waiting: 5 }, function () {
-          this.setAvgAllYears(res, 0);
-        });
-      })
-      .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('precip coord request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+  precipCoordApi = (request:string):void =>
+  {
+    const controller = (this.coordPrecipAvgController = abortAndRenew(this.coordPrecipAvgController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllYears(res, 0) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("coord precip failed", error);
       });
   };
 
   /*** request 001 precip data ***/
-  precipCoordApi1 = (request) => {
-    if (cancelCoordPrecip1 !== undefined) {
-      cancelCoordPrecip1();
-    }
-
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoordPrecip1 = c;
-      }),
-    })
-      .then((res) => {
-        this.setState({ waiting: 2 }, function () {
-          this.setAvgAllYears(res, 3);
-        });
-      })
-      .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('precip1 coord request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+  precipCoordApi1 = (request: string): void =>
+  {
+    const controller = (this.coordPrecip1Controller = abortAndRenew(this.coordPrecip1Controller));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllYears(res, 3) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("coord precip1 failed", error);
       });
   };
 
   /*** request avg temp data ***/
-  tempCoordApi = (request) => {
-    if (cancelCoordTemp !== undefined) {
-      cancelCoordTemp();
-    }
-
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoordTemp = c;
-      }),
-    })
-      .then((res) => {
-        this.setState({ waiting: 4 }, function () {
-          this.setAvgAllYears(res, 1);
-        });
-      })
-      .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('temp coord request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+  tempCoordApi = (request: string): void =>
+  {
+    const controller = (this.coordTempAvgController = abortAndRenew(this.coordTempAvgController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllYears(res, 1) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("coord temp failed", error);
       });
   };
 
   /*** request 001 temp data ***/
-  tempCoordApi1 = (request) => {
-    if (cancelCoordTemp1 !== undefined) {
-      cancelCoordTemp1();
-    }
-
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoordTemp1 = c;
-      }),
-    })
-      .then((res) => {
-        this.setState({ waiting: 1 }, function () {
-          this.setAvgAllYears(res, 4);
-        });
-      })
-      .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('temp1 coord request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+  tempCoordApi1 = (request: string): void =>
+  {
+    const controller = (this.coordTemp1Controller = abortAndRenew(this.coordTemp1Controller));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllYears(res, 4) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("coord temp 1 failed", error);
       });
   };
 
   /*** request avg sea ice data ***/
-  iceCoordApi = (request) => {
-    if (cancelCoordIce !== undefined) {
-      cancelCoordIce();
-    }
-
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoordIce = c;
-      }),
-    })
-      .then((res) => {
-        this.setState({ waiting: 3 }, function () {
-          this.setAvgAllYears(res, 2);
-        });
-      })
-      .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('ice coord request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+  iceCoordApi = (request: string): void =>
+  {
+    const controller = (this.coordIceAvgController = abortAndRenew(this.coordIceAvgController));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllYears(res, 2) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("coord ice failed", error);
       });
   };
 
   /*** request 001 sea ice data ***/
-  iceCoordApi1 = (request) => {
-    if (cancelCoordIce1 !== undefined) {
-      cancelCoordIce1();
-    }
-
-    Axios.get(request, {
-      cancelToken: new CancelToken(function executor(c) {
-        cancelCoordIce1 = c;
-      }),
-    })
-      .then((res) => {
-        this.setState({ waiting: 0 }, function () {
-          this.setAvgAllYears(res, 5);
-        });
-      })
-      .catch((error) => {
-        if (Axios.isCancel(error)) {
-          ////console.log('ice1 coord request cancelled');
-        } else {
-          console.error("Axios request failed:", error);
-        }
+  iceCoordApi1 = (request: string): void =>
+  {
+    const controller = (this.coordIce1Controller = abortAndRenew(this.coordIce1Controller));
+    Axios.get<ApiResponse<AvgArr>>(request, { signal: controller.signal })
+      .then((res) => { this.setAvgAllYears(res, 5) })
+      .catch((error: unknown) =>
+      {
+        if (isCanceledAxiosError(error)) return;
+        console.error("coord ice1 failed", error);
       });
   };
 
   /*** save data used for music ***/
-  setAvgAllYears = (res, arrayNum) => {
-    const data = res.data.data;
-    var curwait = this.state.waiting;
-    ////console.log('curwait ' + curwait);
+  setAvgAllYears = (
+    res: AxiosResponse<ApiResponse<AvgArr>>,
+    arrayNum: YearArrayNum,
+  ): void => {
+    const data: AvgArr = res.data.data;
+
+    // Choose which state key to update and which notes setter to call
+    let stateKey: YearStateKey;
+    let notesSetter: NotesSetter;
 
     if (arrayNum === 0) {
-      ////console.log('in here ' + arrayNum);
-      this.setState({ precipAvg: [...data] });
-      this.setPrecipNotes(data);
+      stateKey = "precipAvg";
+      notesSetter = this.setPrecipNotes;
     } else if (arrayNum === 1) {
-      ////console.log('in here ' + arrayNum);
-      this.setState({ tempAvg: [...data] });
-      this.setTempNotes(data);
+      stateKey = "tempAvg";
+      notesSetter = this.setTempNotes;
     } else if (arrayNum === 2) {
-      ////console.log('in here ' + arrayNum);
-      this.setState({ iceAvg: [...data] });
-      this.setIceNotes(data);
+      stateKey = "iceAvg";
+      notesSetter = this.setIceNotes;
     } else if (arrayNum === 3) {
-      ////console.log('in here ' + arrayNum);
-      this.setState({ precip1: [...data] });
-      this.setPrecipNotes1(data);
+      stateKey = "precip1";
+      notesSetter = this.setPrecipNotes1;
     } else if (arrayNum === 4) {
-      ////console.log('in here ' + arrayNum);
-      this.setState({ temp1: [...data] });
-      this.setTempNotes1(data);
-    } else if (arrayNum === 5) {
-      ////console.log('in here ' + arrayNum);
-      this.setState({ ice1: [...data] });
-      this.setIceNotes1(data);
-    }
+      stateKey = "temp1";
+      notesSetter = this.setTempNotes1;
+    } else
+    {
+      //if (arrayNum === 5){
+      stateKey = "ice1";
+      notesSetter = this.setIceNotes1;
+    }/* else {
+      console.warn("setAvgAllYears called with unexpected arrayNum:", arrayNum);
+      return;
+    }*/
 
-    //this.setState({ waiting: curwait - 1 });
-
-    this.setupGraph();
-    this.updateGraph();
-    ////console.log(arrayNum, data);
+    // 1) Update the dataset + decrement waiting safely
+    this.setState(
+      (prev) =>
+        ({
+          [stateKey]: data, // data is AvgArr, no Array.isArray, no [0], no spread needed
+          waiting: Math.max(0, prev.waiting - 1), // remove ?? 0
+        }) as Pick<typeof this.state, typeof stateKey | "waiting">,
+      () =>
+      {
+        notesSetter(data);
+      },
+    );
   };
 
   /*** query db for all years of a specific coord ***/
-  doCoordHits(lat, lon) {
-    var closestcity = getClosestCity(lat, lon);
-    var { dbX, dbY } = this.getDBCoords();
+  doCoordHits(lat: number, lon: number): void
+  {
+    const closestcity = getClosestCity(lat, lon);
     this.setState({
       latitude: Math.floor(lat),
       longitude: Math.floor(lon),
       closestCity: closestcity,
       waiting: 6,
-    });
-    var request;
+    },
+      () =>
+      {
 
-    /* Filter and do db hit here */
-    if (dbX <= 360 && dbX >= 1 && dbY <= 180 && dbY >= 1) {
-      request = dbUrl
-        .concat("precipavg/coord/")
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.precipCoordApi(request);
-      request = dbUrl
-        .concat("tempavg/coord/")
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.tempCoordApi(request);
-      request = dbUrl
-        .concat("seaiceavg/coord/")
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.iceCoordApi(request);
-      request = dbUrl
-        .concat("precip001/coord/")
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.precipCoordApi1(request);
-      request = dbUrl
-        .concat("temp001/coord/")
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.tempCoordApi1(request);
-      request = dbUrl
-        .concat("seaice001/coord/")
-        .concat(dbX.toString(10))
-        .concat(",")
-        .concat(dbY.toString(10))
-        .concat(".txt");
-      this.iceCoordApi1(request);
-    }
+        const { dbX, dbY } = this.getDBCoords();
+        let request;
+
+        /* Filter and do db hit here */
+        if (dbX <= 360 && dbX >= 1 && dbY <= 180 && dbY >= 1)
+        {
+          request = dbUrl
+            .concat("precipavg/coord/")
+            .concat(dbX.toString(10))
+            .concat(",")
+            .concat(dbY.toString(10))
+            .concat(".txt");
+          this.precipCoordApi(request);
+          request = dbUrl
+            .concat("tempavg/coord/")
+            .concat(dbX.toString(10))
+            .concat(",")
+            .concat(dbY.toString(10))
+            .concat(".txt");
+          this.tempCoordApi(request);
+          request = dbUrl
+            .concat("seaiceavg/coord/")
+            .concat(dbX.toString(10))
+            .concat(",")
+            .concat(dbY.toString(10))
+            .concat(".txt");
+          this.iceCoordApi(request);
+          request = dbUrl
+            .concat("precip001/coord/")
+            .concat(dbX.toString(10))
+            .concat(",")
+            .concat(dbY.toString(10))
+            .concat(".txt");
+          this.precipCoordApi1(request);
+          request = dbUrl
+            .concat("temp001/coord/")
+            .concat(dbX.toString(10))
+            .concat(",")
+            .concat(dbY.toString(10))
+            .concat(".txt");
+          this.tempCoordApi1(request);
+          request = dbUrl
+            .concat("seaice001/coord/")
+            .concat(dbX.toString(10))
+            .concat(",")
+            .concat(dbY.toString(10))
+            .concat(".txt");
+          this.iceCoordApi1(request);
+        }
+      }
+    );
+    
   }
 
   /*** Run this when play button is pressed ***/
-  playMusic = () => {
+  playMusic = ():void => {
     if (this.state.waiting > 0) {
       //console.log('waiting');
       return;
     }
-    var newind = this.state.index;
+    let newind = this.state.index;
     if (newind === 180) {
       newind = 0;
     }
@@ -943,7 +1011,7 @@ class AllTogether extends Simulation {
     const precipPattern = new Tone.Pattern((time, note) => {
       precipsynth.triggerAttackRelease(note, "16n", time);
       // bind incrementing
-      Tone.Draw.schedule(() => {
+      Tone.getDraw().schedule(() => {
         this.incrementIndex();
       }, time);
     }, precipNotes);
@@ -980,7 +1048,9 @@ class AllTogether extends Simulation {
     pianoPattern.humanize = true;
 
     // catches most errors
-    if (this.state.audioAvailable) {
+    if (this.state.audioAvailable)
+    {
+      transport().cancel();
       precipPattern.start(0);
       precipPattern1.start(0);
       tempPattern.start(0);
@@ -990,37 +1060,39 @@ class AllTogether extends Simulation {
         icePattern.start(0);
         icePattern1.start(0);
       }
-      Tone.Transport.start("+0");
+      transport().start("+0");
     } else {
       Tone.start()
         .then(() => {
-          this.setState({ audioAvailable: true });
-          precipPattern.start(0.001);
-          precipPattern1.start(0.001);
-          tempPattern.start(0.001);
-          tempPattern1.start(0.001);
-          pianoPattern.start(0.001);
-          if (this.getValByIndex(this.state.iceAvg, 0) !== 0) {
-            icePattern.start(0.001);
-            icePattern1.start(0.001);
-          }
-          Tone.Transport.start("+0");
+          this.setState({ audioAvailable: true }, () =>
+          {
+            transport().cancel();
+            precipPattern.start(0.001);
+            precipPattern1.start(0.001);
+            tempPattern.start(0.001);
+            tempPattern1.start(0.001);
+            pianoPattern.start(0.001);
+            if (this.getValByIndex(this.state.iceAvg, 0) !== 0)
+            {
+              icePattern.start(0.001);
+              icePattern1.start(0.001);
+            }
+            transport().start("+0");
+          });
+          
         })
-        .catch((error) => console.error(error));
+        .catch((error: unknown) =>
+        { console.error(error) });
     }
   };
 
   /*** play notes ***/
   playTogetherMapNotes = (
-    val1,
-    val2,
-    val3,
-    val4,
-    index,
-    data1,
-    data2,
-    data3
-  ) => {
+    val1:number,
+    val2: number,
+    val3: number,
+    val4: number
+  ):void => {
     const synth0 = this.getSynth(0);
     const synth1 = this.getSynth(1);
     const synth2 = this.getSynth(2);
@@ -1030,13 +1102,13 @@ class AllTogether extends Simulation {
     const note2 = this.getNote(2, val3);
     const pianoNote = this.getNote(3, val4);
     this.setState({ notePlaying: 1 });
-    Tone.Transport.scheduleOnce((time) => {
+    transport().scheduleOnce(() => {
       synth0.triggerAttackRelease(note0, "16n");
       synth1.triggerAttackRelease(note1, "16n");
       synth2.triggerAttackRelease(note2, "16n");
       piano.triggerAttackRelease(pianoNote, "16n");
     }, "+0");
-    Tone.Transport.scheduleOnce((time) => {
+    transport().scheduleOnce(() => {
       this.setState({ notePlaying: 0 });
       synth0.dispose();
       synth1.dispose();
@@ -1046,28 +1118,33 @@ class AllTogether extends Simulation {
   };
 
   /*** get styles only for this page ***/
-  getTogetherStyles(mw, ch, cw) {
-    var modelWidth = mw;
-    var controlHeight = ch;
-    var controlWidth = cw;
-    var newh = (controlHeight * 4) / 20;
+  getTogetherStyles = (mw: number, ch: number, cw: number):
+    {
+      largeControlBlockStyle: React.CSSProperties;
+      graphHeight: number;
+      graphWidth: number;
+    } => {
+    const modelWidth = mw;
+    const controlHeight = ch;
+    const controlWidth = cw;
+    let newh = (controlHeight * 4) / 20;
     if (this.state.CONTROLVERTDIV !== 1) {
       newh /= 1 - this.state.CONTROLVERTDIV;
     }
 
-    var largeControlBlockStyle = {
+    const largeControlBlockStyle: React.CSSProperties = {
       height: Math.floor(newh),
       width: Math.floor(controlWidth * this.state.CONTROLSPLIT),
       overflow: "hidden",
       float: "left",
     };
 
-    var graphHeight = this.state.pageBottom * this.state.GRAPHVERTDIV;
+    let graphHeight = this.state.pageBottom * this.state.GRAPHVERTDIV;
     if (isNaN(graphHeight)) {
       graphHeight = 0;
     }
 
-    var graphWidth = modelWidth;
+    let graphWidth = modelWidth;
     if (isNaN(graphWidth)) {
       graphWidth = 0;
     }
@@ -1075,33 +1152,66 @@ class AllTogether extends Simulation {
   }
 
   /*** for year slider ***/
-  updateYearVals = () => {
+  updateYearVals = ():void => {
     if (this.state.play === 0) {
       this.doYearHits(this.state.index + 1920);
     }
   };
 
   /*** for chaning city ***/
-  changeToCity = (event) => {
-    var city = event.target.value;
-    var cityinfo = getInfo(city);
-    var lat = cityinfo.latitude;
-    var lon = cityinfo.longitude;
-    this.doCoordHits(lat, lon);
-    this.setState({
-      latitude: lat,
-      longitude: lon,
-      useArray: 0,
-    });
-    this.setupGraph();
-    this.triggerNotes(lat, lon);
-    if (this.state.play === 1) {
-      this.stopMusic();
-    }
+  changeToCity = (event: React.ChangeEvent<HTMLSelectElement>): void =>
+  {
+    const city = event.target.value;
+    const cityinfo = getInfo(city);
+    const lat = cityinfo.latitude;
+    const lon = cityinfo.longitude;
+
+    this.setState(
+      {
+        latitude: lat,
+        longitude: lon,
+        useArray: 0
+      },
+      () =>
+      {
+        this.doCoordHits(lat, lon);
+        this.setupGraph();
+        this.triggerNotes();
+        if (this.state.play === 1)
+        {
+          this.stopMusic();
+        }
+      }
+    );
+
   };
 
   /*** runs on page close ***/
-  componentWillUnmount = () => {
+  componentWillUnmount = ():void => {
+    try {
+      // stop scheduled events + reset timeline
+      transport().stop();
+      transport().cancel(0);
+
+      // stop any playing sources you created, if you have references
+      // (see Fix 2 below)
+    } catch (e) {
+      // don't crash unmount
+      console.warn("Tone cleanup failed", e);
+    }
+
+    this.yearPrecipController?.abort();
+    this.yearTempController?.abort();
+    this.yearIceController?.abort();
+
+    this.coordPrecipAvgController?.abort();
+    this.coordTempAvgController?.abort();
+    this.coordIceAvgController?.abort();
+
+    this.coordPrecip1Controller?.abort();
+    this.coordTemp1Controller?.abort();
+    this.coordIce1Controller?.abort();
+
     PubSub.unsubscribe(this.state.token);
     if (isBrowser) {
       window.removeEventListener("resize", this.updateDimensions);
@@ -1110,48 +1220,61 @@ class AllTogether extends Simulation {
   };
 
   /*** for playing model keys ***/
-  setupPrecipTransport = (e) => {
-    Tone.Transport.start("+0");
+  setupPrecipTransport = (e: React.PointerEvent<HTMLDivElement>):void => {
+    if (this.state.play === 1) return;
+    transport().start("+0");
     this.testPrecipMusic(e);
   };
 
-  setupTempTransport = (e) => {
-    Tone.Transport.start("+0");
+  setupTempTransport = (e: React.PointerEvent<HTMLDivElement>): void =>
+  {
+    if (this.state.play === 1) return;
+    transport().start("+0");
     this.testTempMusic(e);
   };
 
-  setupIceTransport = (e) => {
-    Tone.Transport.start("+0");
+  setupIceTransport = (e: React.PointerEvent<HTMLDivElement>): void =>
+  {
+    if (this.state.play === 1) return;
+    transport().start("+0");
     this.testIceMusic(e);
   };
 
   /*** get locations for crosshair ***/
-  getLocations = () => {
+  getLocations = ():
+    {
+      location1: React.CSSProperties;
+      location2: React.CSSProperties;
+      location3: React.CSSProperties;
+      location4: React.CSSProperties;
+      location5: React.CSSProperties;
+      location6: React.CSSProperties;
+    } => {
     /* A bunch of variables used to calculate crosshair position */
-    var fsize = 12;
-    var modelSplit = Math.floor(
-      (this.state.pageBottom * this.state.MAPVERTDIV) / 2
+    const fsize = 12;
+    const modelSplit = Math.floor(
+      (this.state.pageBottom * this.state.MAPVERTDIV) / 2,
     );
-    var modelLeft =
+    const modelLeft =
       Math.floor(this.state.pageRight * (1 - this.state.MAPDIV)) +
       this.state.PADDING / 2;
-    var modelDiv = Math.floor((this.state.pageRight * this.state.MAPDIV) / 3);
-    var modelTop = this.state.PADDING / 2;
+    const modelDiv = Math.floor((this.state.pageRight * this.state.MAPDIV) / 3);
+    let modelTop = this.state.PADDING / 2;
     if (this.state.pageBottom > this.state.pageRight) {
       modelTop =
         this.state.pageBottom * this.state.CONTROLVERTDIV +
         this.state.PADDING / 2;
     }
 
-    var centerX = 0;
-    var centerY = 0;
+    let centerX = 0;
+    let centerY = 0;
 
-    var xAdj = (this.state.longitude * modelDiv) / 360 - fsize / 4;
-    var yAdj = 0 - (this.state.latitude * modelSplit) / 180 - fsize / 2;
+    let xAdj = (this.state.longitude * modelDiv) / 360 - fsize / 4;
+    let yAdj = 0 - (this.state.latitude * modelSplit) / 180 - fsize / 2;
 
     centerX = modelLeft + modelDiv / 2;
     centerY = modelTop + modelSplit / 2;
-    var location1 = {
+    const location1:React.CSSProperties = {
       position: "absolute",
       left: centerX + xAdj,
       top: centerY + yAdj,
@@ -1164,13 +1287,13 @@ class AllTogether extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     centerX = modelLeft + modelDiv + modelDiv / 2;
     centerY = modelTop + modelSplit / 2;
-    var location2 = {
+    const location2:React.CSSProperties = {
       position: "absolute",
       left: centerX + xAdj,
       top: centerY + yAdj,
@@ -1183,13 +1306,13 @@ class AllTogether extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     centerX = modelLeft + modelDiv / 2;
     centerY = modelTop + modelSplit + modelSplit / 2;
-    var location4 = {
+    const location4:React.CSSProperties = {
       position: "absolute",
       left: centerX + xAdj,
       top: centerY + yAdj,
@@ -1202,13 +1325,13 @@ class AllTogether extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     centerX = modelLeft + modelDiv + modelDiv / 2;
     centerY = modelTop + modelSplit + modelSplit / 2;
-    var location5 = {
+    const location5:React.CSSProperties = {
       position: "absolute",
       left: centerX + xAdj,
       top: centerY + yAdj,
@@ -1221,17 +1344,17 @@ class AllTogether extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     /* adjusdments for polar coords, not very accurate */
-    var rX = (90 - this.state.latitude) * (modelDiv / 40);
-    var rY = (90 - this.state.latitude) * (modelSplit / 45);
+    const rX = (90 - this.state.latitude) * (modelDiv / 40);
+    const rY = (90 - this.state.latitude) * (modelSplit / 45);
 
-    var theta = ((this.state.longitude / 180) * Math.PI) / 2;
+    const theta = ((this.state.longitude / 180) * Math.PI) / 2;
 
-    var multX = Math.sin(theta);
+    let multX = Math.sin(theta);
     if (this.state.longitude < -90) {
       multX = (Math.PI * 41) / 128 + multX;
       multX = 0 - multX;
@@ -1246,10 +1369,10 @@ class AllTogether extends Simulation {
       multX += Math.PI / 8;
     }
 
-    var multY = 0.5 - Math.cos(theta);
+    let multY = 0.5 - Math.cos(theta);
     multY *= 2;
 
-    var ybase = 0;
+    let ybase = 0;
     if (
       this.state.latitude < 75 &&
       this.state.longitude > -150 &&
@@ -1265,7 +1388,7 @@ class AllTogether extends Simulation {
 
     centerX = modelLeft + 2 * modelDiv + modelDiv / 2;
     centerY = modelTop + modelSplit / 2;
-    var location3 = {
+    const location3:React.CSSProperties = {
       position: "absolute",
       left: centerX + xAdj,
       top: centerY + yAdj,
@@ -1278,13 +1401,13 @@ class AllTogether extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     centerX = modelLeft + 2 * modelDiv + modelDiv / 2;
     centerY = modelTop + modelSplit + modelSplit / 2;
-    var location6 = {
+    const location6:React.CSSProperties = {
       position: "absolute",
       left: centerX + xAdj,
       top: centerY + yAdj,
@@ -1297,8 +1420,8 @@ class AllTogether extends Simulation {
       WebkitUserSelect: "none",
       KhtmlUserSelect: "none",
       MozUserSelect: "none",
-      MsUserSelect: "none",
-      UserSelect: "none",
+      msUserSelect: "none",
+      userSelect: "none",
     };
 
     if (this.state.latitude < 62) {
@@ -1310,38 +1433,54 @@ class AllTogether extends Simulation {
   };
 
   /*** navigate to about page ***/
-  openAbout = () => {
+  openAbout = ():void => {
     const { navigation } = this.props;
     if (this.state.play === 1) {
-      this.stopMusic(1);
+      this.stopMusic(false);
     }
-    navigation.navigate("About", {
-      page: 1,
-      pageBottom: this.state.pageBottom,
-      pageRight: this.state.pageRight,
-    });
+
+    // Persist state before leaving
+    sessionStorage.setItem("allTogether_restore", JSON.stringify({
+      latitude: this.state.latitude,
+      longitude: this.state.longitude,
+      index: this.state.index,
+      closestCity: this.state.closestCity,
+    }));
+    navigation.navigate("About");
   };
 
   /*** runs on state update ***/
-  render() {
-    var { location1, location2, location3, location4, location5, location6 } =
+  render(): React.JSX.Element {
+    const { location1, location2, location3, location4, location5, location6 } =
       this.getLocations();
 
-    var playButton = this.getPlayButton();
+    const playButton = this.getPlayButton();
+    const playButtonAlt =
+      this.state.waiting > 0
+        ? "loading"
+        : this.state.play === 1
+          ? "pause"
+          : "play";
 
-    var { dbX, dbY } = this.getDBCoords();
+    const { dbX, dbY } = this.getDBCoords();
 
-    var co2val = Math.round(this.state.co2data[this.state.index].co2_val);
+    const co2_obj = this.state.co2data[this.state.index];
+    const co2val = co2_obj !== undefined && typeof co2_obj.co2_val === 'number' && Number.isFinite(co2_obj.co2_val)
+      ? Math.round(co2_obj.co2_val)
+      : "--";
 
     /*** setup model URL ***/
-    var urlAdd = urlPre.concat(this.state.modelStr);
-    var ind = this.state.index.toString();
-    var suffix = ind.concat(".jpg");
-    var fullUrl = urlAdd.concat(suffix);
+    const urlAdd = urlPre.concat(this.state.modelStr);
+    const ind = this.state.index.toString();
+    const suffix = ind.concat(".jpg");
+    const fullUrl = urlAdd.concat(suffix);
+    const modelAltText =
+      ("mapped precipitation, temperature, and sea ice data from climate model")
+      + `, year ${String(this.state.index + 1920)}, Carbon Dioxide ${String(co2val)} ppm, highlighting selected location: ${String(this.state.latitude)}, ${String(this.state.longitude)} and nearest city: ${this.state.closestCity}`;
 
-    var precip_val = 0;
-    var temp_val = 0;
-    var ice_val = 0;
+    let precip_val = 0;
+    let temp_val = 0;
+    let ice_val = 0;
 
     /*** Set avg db values ***/
     if (this.state.useArray === 3) {
@@ -1349,11 +1488,11 @@ class AllTogether extends Simulation {
       temp_val = this.getValByIndex(this.state.tempAvg, this.state.index);
       ice_val = this.getValByIndex(this.state.iceAvg, this.state.index);
     } else {
-      var coord_index = this.getDBIndex(dbX, dbY);
+      const coord_index = this.getDBIndex(dbX, dbY);
       if (this.state.precipAvgAllCoords.length > coord_index) {
         precip_val = this.getValByCoord(
           this.state.precipAvgAllCoords,
-          coord_index
+          coord_index,
         );
       }
       if (this.state.tempAvgAllCoords.length > coord_index) {
@@ -1364,15 +1503,22 @@ class AllTogether extends Simulation {
       }
     }
 
-    var temp_pre = "Temperature: +";
-    if (temp_val < 0) {
-      temp_pre = "Temperature: ";
-    }
+    let temp_pre = "Temperature: +";
+    if (Number.isFinite(temp_val) && temp_val >= 0) temp_pre = "Temperature: +";
 
-    ice_val *= 100;
+    /*ice_val *= 100;
     ice_val = Math.round(ice_val * 100) / 100;
     temp_val = Math.round(temp_val * 100) / 100;
-    precip_val = Math.round(precip_val * 100) / 100;
+    precip_val = Math.round(precip_val * 100) / 100;*/
+    const precipNum = Number.isFinite(precip_val)
+      ? Math.round(precip_val * 100) / 100
+      : "--";
+    const tempNum = Number.isFinite(temp_val)
+      ? Math.round(temp_val * 100) / 100
+      : "--";
+    const icePct = Number.isFinite(ice_val)
+      ? Math.round(ice_val * 100 * 100) / 100
+      : "--"; // ice fraction -> %
 
     const {
       pageDiv,
@@ -1415,8 +1561,6 @@ class AllTogether extends Simulation {
     const { largeControlBlockStyle, graphHeight, graphWidth } =
       this.getTogetherStyles(modelWidth, controlHeight, controlWidth);
 
-    this.updateGraph();
-
     /*** Return the page ***/
 
     return (
@@ -1445,13 +1589,13 @@ class AllTogether extends Simulation {
                   style={playSplitDivStyle}
                   onClick={
                     this.state.play
-                      ? () => this.stopMusic(0)
-                      : () => this.playMusic()
+                      ? (): void => { this.stopMusic(false) }
+                      : (): void => { this.playMusic() }
                   }
                 >
                   <img
                     style={playSplitDivStyle}
-                    alt="play button"
+                    alt={playButtonAlt}
                     src={playButton}
                   />
                 </button>
@@ -1613,7 +1757,7 @@ class AllTogether extends Simulation {
                 <div style={quarterControlStyle} />
                 <button
                   style={quarterControlStyle}
-                  onClick={() => this.openAbout()}
+                  onClick={this.openAbout}
                 >
                   <span style={aboutButton}>FAQ</span>
                 </button>
@@ -1624,7 +1768,7 @@ class AllTogether extends Simulation {
                 <img style={keyContainer} alt="graph key" src={graphKey} />
               </div>
 
-              <button style={dataBlockStyle} onClick={() => this.callHome()}>
+              <button style={dataBlockStyle} onClick={this.callHome}>
                 <img
                   style={dataBlockStyle}
                   alt="home button"
@@ -1658,7 +1802,7 @@ class AllTogether extends Simulation {
             >
               <img
                 src={fullUrl}
-                alt="climate model"
+                alt={modelAltText}
                 style={modelStyle}
                 draggable="false"
               />
@@ -1667,17 +1811,17 @@ class AllTogether extends Simulation {
             <div style={graphBufferStyle}>
               <div style={dataThirdStyle}>
                 <p style={smallLabelTextStyle}>
-                  Precipitation: {precip_val} % of Annual Avg
+                  Precipitation: {precipNum} % of Annual Avg
                 </p>
               </div>
               <div style={dataThirdStyle}>
                 <p style={smallLabelTextStyle}>
                   {temp_pre}
-                  {temp_val} Celsius (vs 1920-1950)
+                  {tempNum} Celsius (vs 1920-1950)
                 </p>
               </div>
               <div style={dataThirdStyle}>
-                <p style={smallLabelTextStyle}>Sea Ice Fraction: {ice_val} %</p>
+                <p style={smallLabelTextStyle}>Sea Ice Fraction: {icePct} %</p>
               </div>
             </div>
 
@@ -1746,7 +1890,7 @@ class AllTogether extends Simulation {
                 step="1"
                 onChange={this.handleYear}
               />
-              <img style={timelineStyle} alt="timeline" src={timelineImg} />
+              <img style={timelineStyle} alt="Timeline" src={timelineImg} />
             </div>
           </div>
           <div
@@ -1804,8 +1948,13 @@ class AllTogether extends Simulation {
 }
 
 /*** class wrapper for naviagion functionality ***/
-export default function AllTogetherWrapper(props) {
-  const navigation = useNavigation();
+type AllTogetherWrapperProps = Record<string, unknown>;
+export default function AllTogetherWrapper(props: AllTogetherWrapperProps): React.JSX.Element  {
+  const { navigation, route } = useNavigationShim();
 
-  return <AllTogether {...props} navigation={navigation} />;
+  return (
+    <div style={{ minHeight: "100vh", backgroundColor: "#efefef" }}>
+      <AllTogether {...props} navigation={navigation} route={route} />
+    </div>
+  );
 }
